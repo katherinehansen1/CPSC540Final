@@ -1,1 +1,71 @@
 # Based on the flight phase ("Climb", "Landing Roll", "Approach", "Take-off run"), which phase is correlated with the largest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
+
+# DAG
+# Install and load DAG-related packages
+library(dagitty)
+
+# Define the causal structure
+dag <- dagitty('dag {
+  FlightPhase -> BirdStrikes
+  Weather -> BirdStrikes
+  TimeOfDay -> BirdStrikes
+  Weather -> FlightPhase
+  TimeOfDay -> FlightPhase
+}')
+
+# Plot the DAG
+plot(dag)
+
+# Check for adjustment sets
+adjustmentSets(dag, exposure = "FlightPhase", outcome = "BirdStrikes")
+# Example using a Bayesian model for causal estimation
+library(brms)
+
+# Adjust for confounders based on the DAG
+causal_model <- brm(BirdStrikes ~ FlightPhase + Weather + TimeOfDay, data = data, family = poisson())
+
+# Summarize results
+summary(causal_model)
+
+# Extract posterior estimates for causal effect of FlightPhase on BirdStrikes
+causal_effect <- posterior_summary(causal_model)
+print(causal_effect)
+
+
+
+# BAYESIAN PARAM ESTIMATION
+# Load necessary libraries
+library(dplyr)
+library(ggplot2)
+
+# Assuming `data` is your dataset and has columns `FlightPhase` and `BirdStrikes`
+# Calculate average bird strikes per flight phase
+phase_summary <- data %>%
+  group_by(FlightPhase) %>%
+  summarise(AverageStrikes = mean(BirdStrikes, na.rm = TRUE))
+
+# View summary
+print(phase_summary)
+
+# Optional visualization
+ggplot(phase_summary, aes(x = FlightPhase, y = AverageStrikes, fill = FlightPhase)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Bird Strikes by Flight Phase", x = "Flight Phase", y = "Average Strikes")
+
+
+
+# BAYESIAN CAUSAL INFERENCE
+# Install and load Bayesian modeling packages
+library(rstanarm)
+
+# Fit a Bayesian model to estimate average strikes per flight phase
+model <- stan_glm(BirdStrikes ~ FlightPhase, data = data, family = poisson(link = "log"))
+
+# Summarize the posterior estimates
+summary(model)
+
+# Extract posterior means and credible intervals
+posterior_samples <- as.data.frame(posterior_interval(model, prob = 0.95))
+
+# Check which phase has the highest posterior mean for bird strikes
+print(posterior_samples)
