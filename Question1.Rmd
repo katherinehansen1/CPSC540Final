@@ -61,7 +61,7 @@ ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned
 
 ```
 
-## Bayesian Process 
+## Bayesian Process
 
 #### Gonna go back and watch her video to clean up what I have done. I am getting to a point where I'm over it, just trying to put a pen to paper yk
 
@@ -163,7 +163,7 @@ TOST_result$decision
 # visual?
 ```
 
--   x\^2 Test
+-   x\^2 Test. this is kinda bad
 
     ```{r}
     # Clean data to where theres a dummy var for if the pilot is warned, if the pilot is not warned
