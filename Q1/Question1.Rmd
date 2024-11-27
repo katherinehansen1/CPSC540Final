@@ -1,0 +1,176 @@
+---
+title: "CPSC540 Final Project Question 1"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+## **Question**: Is there evidence that warned and non-warned pilots have the same mean birds hit? Does it even matter if they are warned?
+
+-   I will investigate the relationship between warned and non-warned pilots, and if there's an impact on whether or not the warning plays a role in how many birds are hit.
+-   To answer this question I will use the columns PilotWarned, a dummy variable to detect if a pilot was warned about birds in their flight path, and NumbersStruckActual, the count of birds hit by the plane. I will start by creating some visuals to complete exploratory data analysis on the distribution of birds hit in comparison to pilots warned. Once the domain is further understood, I plan on using both Bayesian and Frequentist processes to answer my hypothesis.
+-   For the Bayesian portion, I will create a Bayesian regression model in R that measures the number of birds struck in regards to if the pilot is warned or not. I will look at the credible intervals (CI) to see if the difference in average birds struck is meaningful. That is, if the CI does not include zero. I would like to make some kind of visual of this to further convey this concept.
+-   For the frequentist portion, I will follow the same kind of process, but instead use a generalized linear model in R that measures the same relationship. After fitting the model, I will utilize a two one-sided T-test (TOST), a form of equivalence testing to see if there is evidence that our null hypothesis is true, or if there is a statistically significant effect between the two types of pilots. I will complete TOST by using the tsum_TOST function.
+
+```{r}
+# Library City
+
+library(ggdag)
+library(dagitty)
+library(ggplot2)
+library(brms)
+library(dplyr)
+library(bayesplot)
+
+
+getwd()
+data <- read.csv('Bird_strikes.csv')
+head(data)
+```
+
+## Exploratory Data Analysis
+
+```{r}
+# Mean, Median, Quartiles, Maximum, Minimum
+# maximum is quite outlierlina
+summary(data$NumberStruckActual)
+
+# Count of Instances
+table(data$PilotWarned)
+
+```
+
+```{r}
+# Visual which shows the count of birds hit by warned pilots vs not warned pilots
+# just to give an idea and see if there's even a difference
+
+str(data)
+data$PilotWarned <- as.factor(data$PilotWarned)
+
+birds_hit <- data %>% group_by(PilotWarned) %>% summarise(NumberStruckCount = sum(NumberStruckActual))
+birds_hit
+
+
+ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned)) + 
+  geom_bar(stat = "identity") +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  geom_text(aes(label = NumberStruckCount, vjust = -0.3)) +
+  labs(title = "Total Birds Hit by Warned vs. Un-Warned Pilots")
+  
+
+```
+
+## Bayesian Process
+
+#### Gonna go back and watch her video to clean up what I have done. I am getting to a point where I'm over it, just trying to put a pen to paper yk
+
+```{r}
+# Bayesian Hypothesis Testing
+
+# Keep updating this to make a more realistic prior...i feel it's getting too uninformative and that i am pissing in the dark with this
+priors <- c(
+  prior("normal(0, 10)", class = "b"), # wider effect for coefficient
+  prior("normal(2, 10)", class = "Intercept"), # mean of 2? maybe this makes things closer to reality...
+  prior("gamma(3, 1)", class = "sigma") # substantial spread in variance
+  # should I just focus on coefficient?
+)
+
+# Prior Distribution Check....ugh it's fugly
+mod_0 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors, sample_prior = "only")
+mod_0 |> pp_check() + xlim(-50, 50)
+```
+
+```{r}
+# Measure convergence & metrics
+mcmc_trace(mod_1)
+
+```
+
+```{r}
+# Posterior Distribution Check - this is bad
+mod_1 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors)
+mod_1 |> pp_check() + xlim(-50, 50)
+summary(mod_1)
+
+```
+
+```{r}
+mod_1$fit
+
+# Posterior Examination - come back to this too
+
+mcmc_areas(mod_1,
+           area_method = "scaled height",
+           pars = c("b_PilotWarnedY")) + 
+  geom_vline(xintercept = c(-0.1,0.1),
+             color = "red",
+             linetype = "dashed") # ROPE
+```
+
+## Frequentist Process
+
+```{r}
+# Modeling Modeling
+
+mod_2 <- glm(NumberStruckActual ~ PilotWarned, data = data)
+
+summary(mod_2)
+```
+
+-   Equivalence Testing
+
+```{r}
+# T-testing
+data$Warned <- 0
+data$Warned[data$PilotWarned == "Y"] <- 1
+
+data$NotWarned <- 0
+data$NotWarned[data$PilotWarned == "N"] <- 1
+
+# is the difference in mean birds hit different than 0? is there an effect?
+
+t.test(x = data$NumberStruckActual[data$Warned == 1],
+       y = data$NumberStruckActual[data$NotWarned == 1],
+       alternative = "two.sided")
+```
+
+```{r}
+library(TOSTER)
+
+# Inspo came from HW2. I'll adjust it accordingly.
+
+coef_summary <- summary(mod_2)$coefficients
+coef_summary
+
+mean_diff <- coef_summary["PilotWarnedY", "Estimate"]
+std_error <- coef_summary["PilotWarnedY", "Std. Error"]
+
+# Use the PilotWarnedY coefficient from GLM
+TOST_result <- tsum_TOST(
+  m1 = mean_diff,
+  mu = 0,
+  sd1 = std_error, 
+  n1 = nrow(dat), 
+  low_eqbound = -0.1*std_error, 
+  high_eqbound = 0.1*std_error
+)
+
+# Ask about better ways to do TOST because I am not quite confident here
+
+TOST_result$decision
+
+# visual?
+```
+
+-   x\^2 Test. this is kinda bad
+
+    ```{r}
+    # Clean data to where theres a dummy var for if the pilot is warned, if the pilot is not warned
+
+
+    # Not sure if I fully understand this... measuring the homogeneity of the two groups...hrm
+    summary_data <- rbind(yes = c(data$NumberStruckActual[data$Warned == 1],
+                                  data$NumberStruckActual[data$NotWarned == 1]))
+    chisq.test(summary_data)
+    ```
