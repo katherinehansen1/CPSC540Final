@@ -1,0 +1,138 @@
+---
+title: "Q4"
+author: "Hawkins_Kelsey"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+# ~~~~~ ANALYSIS ~~~~~
+
+# Based on the flight phase ("Climb", "Landing Roll", "Approach", "Take-off run"), which phase is correlated with the largest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
+
+# Preliminary EDA and Summary
+
+```{r setup, include=FALSE, echo = FALSE}
+# Load libraries
+library(tidyverse)
+library(ggdag)
+library(rstanarm)
+library(bayesplot)
+library(dagitty)
+
+# Load data
+data <- read.csv("Bird_strikes.csv", stringsAsFactors = TRUE)
+
+# Replace NAs with 0
+data[is.na(data)] <- 0
+
+```
+
+## Summary Overview
+```{r overview, include = TRUE, echo = FALSE}
+# Summarize bird strikes by flight phase
+bird_strikes_summary <- data %>%
+  group_by(FlightPhase) %>%
+  summarise(
+    MeanStrikes = mean(NumberStruckActual, na.rm = TRUE),
+    VarianceStrikes = var(NumberStruckActual, na.rm = TRUE),
+    Count = n()
+  )
+
+# Print the summary
+print(bird_strikes_summary)
+
+# Bar plot of mean bird strikes by flight phase
+ggplot(bird_strikes_summary, aes(x = FlightPhase, y = MeanStrikes, fill = FlightPhase)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Average Bird Strikes by Flight Phase",
+    x = "Flight Phase",
+    y = "Average Number of Bird Strikes"
+  ) +
+  theme_minimal()
+
+```
+
+## DAG
+```{r DAG, include = TRUE, echo = FALSE}
+# Construct DAG
+dag <- dagitty("
+dag {
+  AircraftType -> NumberStruckActual
+  WeatherConditions -> NumberStruckActual
+  TimeOfDay -> NumberStruckActual
+  FlightPhase -> NumberStruckActual
+}
+")
+
+# Plot the DAG
+ggdag(dag) +
+  theme_minimal() +
+  labs(title = "DAG: Confounding Variables for Bird Strikes")
+
+```
+
+# Bayesian Parameter Estimation + Causal Inference
+```{r bayesianParamEstimation, echo = FALSE, include = TRUE}
+# Fit Bayesian Poisson regression
+bayesian_model <- stan_glm(
+  NumberStruckActual ~ FlightPhase,
+  data = data,
+  family = poisson(link = "log"),
+  prior = normal(0, 2.5),
+  prior_intercept = normal(0, 5),
+  chains = 4, iter = 2000
+)
+
+# Summarize model output
+print(summary(bayesian_model))
+
+# Extract posterior intervals
+posterior_intervals <- posterior_interval(bayesian_model, prob = 0.95)
+print(posterior_intervals)
+
+# Plot posterior distributions
+mcmc_areas(
+  as.matrix(bayesian_model),
+  pars = c("(Intercept)", 
+           "FlightPhaseClimb", 
+           "FlightPhaseLanding Roll", 
+           "FlightPhaseTake-off run")
+) +
+  labs(title = "Posterior Distributions of Flight Phase Effects")
+
+# Posterior predictive checks
+pp_check(bayesian_model, plotfun = "dens_overlay") +
+  labs(title = "Posterior Predictive Check")
+
+```
+# ~~~~~ RESULTS ~~~~~
+
+Analysis of Results
+
+1. Posterior Distributions:
+The plot of posterior distributions shows the estimated effects of different flight phases on bird strikes.
+The intercept represents the baseline effect (likely the log of mean strikes when no specific phase is present).
+Positive effects (e.g., for FlightPhaseClimb and FlightPhaseTake-off run) indicate these phases are associated with a higher number of bird strikes relative to the baseline.
+Negative effects (e.g., FlightPhaseDescent and FlightPhaseParked) suggest a reduced association compared to the baseline.
+
+2. Credible Intervals:
+The 95% credible intervals for FlightPhaseClimb and FlightPhaseTake-off run are entirely positive, indicating significant positive associations with bird strikes.
+FlightPhaseParked has a wide credible interval, crossing negative values, which suggests uncertainty and potentially non-significant results.
+FlightPhaseTaxi spans both positive and negative values, indicating ambiguity in its effect.
+
+3. Posterior Predictive Check:
+The predictive check shows the alignment of simulated data (y_rep) with the observed data (y).
+A strong overlap between the two indicates that the model fits the observed data well.
+The plot shows extreme values (e.g., very high bird strikes), suggesting potential overdispersion or outliers in the dataset. Consider further diagnostics to assess model fit for extreme counts.
+
+4. MCMC Diagnostics:
+Rhat values are all 1.0, indicating good convergence of chains.
+Effective sample sizes (n_eff) are high across parameters, ensuring reliable posterior estimates.
+Monte Carlo Standard Errors (mcse) are low, indicating precise estimates of posterior means.
+
+Key Takeaways:
+Climb and Take-off run phases are strongly associated with higher bird strikes.
+The causal impact of flight phases is evident, but further modeling (e.g., including confounders like weather conditions or wildlife size) can refine the results.
+The results suggest that bird strike mitigation strategies should focus more on the climb and take-off run phases.
+
+# ~~~~~ DISCUSSION ~~~~~
