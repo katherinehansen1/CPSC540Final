@@ -25,7 +25,7 @@ library(bayesplot)
 
 getwd()
 data <- read.csv('Bird_strikes.csv')
-head(data)
+data
 ```
 
 ## Exploratory Data Analysis
@@ -35,7 +35,7 @@ head(data)
 # maximum is quite outlierlina
 summary(data$NumberStruckActual)
 
-# Count of Instances
+# Count of Instances - how many incidences were the pilots warned vs not warned about the birds in the sky?
 table(data$PilotWarned)
 
 ```
@@ -61,6 +61,17 @@ ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned
 
 ```
 
+```{r}
+# Box plot of the column
+boxplot(data$NumberStruckActual, 
+        main = "Instances of Birds Struck Counts", # oooo name that better
+        xlab = "Birds Struck", 
+        ylab = "Values", 
+        col = "lightblue", 
+        horizontal = TRUE)  # Use horizontal = TRUE for horizontal orientation
+
+```
+
 ## Bayesian Process
 
 #### Gonna go back and watch her video to clean up what I have done. I am getting to a point where I'm over it, just trying to put a pen to paper yk
@@ -68,17 +79,45 @@ ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned
 ```{r}
 # Bayesian Hypothesis Testing
 
+
+# Prior Selection. Here's attempt 1 with what I saw in the lecture video
+
 # Keep updating this to make a more realistic prior...i feel it's getting too uninformative and that i am pissing in the dark with this
 priors <- c(
-  prior("normal(0, 10)", class = "b"), # wider effect for coefficient
-  prior("normal(2, 10)", class = "Intercept"), # mean of 2? maybe this makes things closer to reality...
-  prior("gamma(3, 1)", class = "sigma") # substantial spread in variance
+  prior("normal(0, 5)", class = "b"), # wider effect for coefficient
+  prior("normal(0, 4)", class = "Intercept"), # mean of 2? maybe this makes things closer to reality...
+  prior("gamma(0.1, 10)", class = "sigma") # substantial spread in variance
   # should I just focus on coefficient?
 )
 
 # Prior Distribution Check....ugh it's fugly
 mod_0 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors, sample_prior = "only")
-mod_0 |> pp_check() + xlim(-50, 50)
+mod_0 |> pp_check() + xlim(-15, 15)
+```
+
+```{r}
+# Attempt 2
+
+# Less Informed Priors? Going to see how the model defaults without any established priors. Good place to start I guess
+
+# Lower bound idea: https://discourse.mc-stan.org/t/checking-understanding-of-bounds-on-priors/8940 since we at least need a collision value of 1. Stop predicting negatives!
+
+# Log normal idea to introduce non-negativity.
+
+# intercept mean centered around average
+# variance of 0.5 tandard deviation of the log-scale, reflecting moderate variability.
+
+# dunno how to tame the coeff...
+
+priors <- c(prior("normal(0, 8)", class = "b"),
+            prior("lognormal(log(1.5), 0.5)", class = "Intercept"), 
+            prior("gamma(0.5, 10)", class = "sigma"))
+
+mod_1 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors, sample_prior = "only")
+
+get_prior(mod_1)
+
+mod_1 |> pp_check() + xlim(-15, 15)
 ```
 
 ```{r}
