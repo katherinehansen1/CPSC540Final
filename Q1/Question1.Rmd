@@ -25,7 +25,8 @@ library(bayesplot)
 
 getwd()
 data <- read.csv('Bird_strikes.csv')
-data
+str(data)
+data$Date <- as.Date(data$FlightDate, format = "%m/%d/%y %H:%M")
 ```
 
 ## Exploratory Data Analysis
@@ -38,6 +39,11 @@ summary(data$NumberStruckActual)
 # Count of Instances - how many incidences were the pilots warned vs not warned about the birds in the sky?
 table(data$PilotWarned)
 
+data$WasWarned <- 0
+data$WasWarned[data$PilotWarned == "Y"] <- 1
+
+data
+
 ```
 
 ```{r}
@@ -45,9 +51,8 @@ table(data$PilotWarned)
 # just to give an idea and see if there's even a difference
 
 str(data)
-data$PilotWarned <- as.factor(data$PilotWarned)
 
-birds_hit <- data %>% group_by(PilotWarned) %>% summarise(NumberStruckCount = sum(NumberStruckActual))
+birds_hit <- data %>% group_by(PilotWarned) %>% summarise(NumberStruckCount = sum(NumberStruckActual), PilotCount = n())
 birds_hit
 
 
@@ -58,7 +63,26 @@ ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned
   geom_text(aes(label = NumberStruckCount, vjust = -0.3)) +
   labs(title = "Total Birds Hit by Warned vs. Un-Warned Pilots")
   
+ggplot(birds_hit, aes(x = PilotWarned, y = PilotCount, fill = PilotWarned)) + 
+  geom_bar(stat = "identity") +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  geom_text(aes(label = PilotCount, vjust = -0.3)) +
+  labs(title = "Count of Warned vs. Un-Warned Pilots")
 
+```
+
+```{r}
+# warnings over time
+data
+
+max_data <- data %>%
+  filter(NumberStruckActual == max(NumberStruckActual))
+
+ggplot(data, aes(x = Date, y = NumberStruckActual, color = PilotWarned)) + 
+  geom_bar(stat = "identity", show.legend = FALSE) + 
+  facet_wrap(~PilotWarned) + 
+  geom_text(data = max_data,aes(label = NumberStruckActual), vjust = -0.5, size = 3) + theme_minimal()
 ```
 
 ```{r}
@@ -91,7 +115,7 @@ priors <- c(
 )
 
 # Prior Distribution Check....ugh it's fugly
-mod_0 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors, sample_prior = "only")
+mod_0 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, sample_prior = "only")
 mod_0 |> pp_check() + xlim(-15, 15)
 ```
 
@@ -104,19 +128,19 @@ mod_0 |> pp_check() + xlim(-15, 15)
 
 # Log normal idea to introduce non-negativity.
 
-# intercept mean centered around average
-# variance of 0.5 tandard deviation of the log-scale, reflecting moderate variability.
+# took out variance
 
-# dunno how to tame the coeff...
+# dunno how to tame the coeff...lock in on this later ig.
 
-priors <- c(prior("normal(0, 8)", class = "b"),
-            prior("lognormal(log(1.5), 0.5)", class = "Intercept"), 
-            prior("gamma(0.5, 10)", class = "sigma"))
+priors <- c(prior("normal(0, 2)", class = "b", lb = 0),
+            prior("lognormal(log(2.7), 0.5)", class = "Intercept"))
+            #prior("gamma(2, 0.5)", class = "sigma", lb = 0))
 
-mod_1 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors, sample_prior = "only")
+mod_1 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, sample_prior = "only")
 
 get_prior(mod_1)
 
+mod_1 |> pp_check()
 mod_1 |> pp_check() + xlim(-15, 15)
 ```
 
@@ -127,8 +151,10 @@ mcmc_trace(mod_1)
 ```
 
 ```{r}
-# Posterior Distribution Check - this is bad
-mod_1 <- brm(NumberStruckActual ~ PilotWarned, data = data, prior = priors)
+# Posterior Distribution Check 
+# poisson likelihood function for non-negativity count (count of birds hit)
+mod_1 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, family = poisson())
+
 mod_1 |> pp_check() + xlim(-50, 50)
 summary(mod_1)
 
@@ -137,14 +163,12 @@ summary(mod_1)
 ```{r}
 mod_1$fit
 
-# Posterior Examination - come back to this too
+# Posterior Examination - parameter estimation for the coefficient
+# plot a parameter for coefficient to see densitiy of posteriors for each values
+# red plots that show our region of practical equivalence
+# all of the posterior is outside of the rope
 
-mcmc_areas(mod_1,
-           area_method = "scaled height",
-           pars = c("b_PilotWarnedY")) + 
-  geom_vline(xintercept = c(-0.1,0.1),
-             color = "red",
-             linetype = "dashed") # ROPE
+mcmc_areas(mod_1, pars = c("b_WasWarned"))
 ```
 
 ## Frequentist Process
@@ -152,12 +176,15 @@ mcmc_areas(mod_1,
 ```{r}
 # Modeling Modeling
 
-mod_2 <- glm(NumberStruckActual ~ PilotWarned, data = data)
+# poisson for count
+mod_2 <- glm(NumberStruckActual ~ WasWarned, data = data, family = poisson())
 
 summary(mod_2)
+confint(mod_2)
+
 ```
 
--   Equivalence Testing
+-   Equivalence Testing last thing i will fix before presentation and then this is what i will roll with for now.
 
 ```{r}
 # T-testing
@@ -208,8 +235,12 @@ TOST_result$decision
     # Clean data to where theres a dummy var for if the pilot is warned, if the pilot is not warned
 
 
-    # Not sure if I fully understand this... measuring the homogeneity of the two groups...hrm
-    summary_data <- rbind(yes = c(data$NumberStruckActual[data$Warned == 1],
-                                  data$NumberStruckActual[data$NotWarned == 1]))
-    chisq.test(summary_data)
+    # Measure the independence of warnings and birds being hit
+
+    hit <- data %>%
+      group_by(WasWarned) %>%
+      summarise(BirdsHit = sum(NumberStruckActual))
+
+    chisq_test <- chisq.test(hit$BirdsHit)
+    print(chisq_test)
     ```
