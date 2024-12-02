@@ -4,11 +4,10 @@ author: "Hawkins_Kelsey"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
-# ~~~~~ ANALYSIS ~~~~~
 
 # Based on the flight phase ("Climb", "Landing Roll", "Approach", "Take-off run"), which phase is correlated with the largest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
 
-# Preliminary EDA and Summary
+# ~~~~~ ANALYSIS ~~~~~
 
 ```{r setup, include=FALSE, echo = FALSE}
 # Load libraries
@@ -16,6 +15,8 @@ library(tidyverse)
 library(ggdag)
 library(rstanarm)
 library(bayesplot)
+library(fastDummies)
+library(corrplot)
 library(dagitty)
 
 # Load data
@@ -26,7 +27,8 @@ data[is.na(data)] <- 0
 
 ```
 
-## Summary Overview
+## EDA
+
 ```{r overview, include = TRUE, echo = FALSE}
 # Summarize bird strikes by flight phase
 bird_strikes_summary <- data %>%
@@ -52,17 +54,59 @@ ggplot(bird_strikes_summary, aes(x = FlightPhase, y = MeanStrikes, fill = Flight
 
 ```
 
-## DAG
-```{r DAG, include = TRUE, echo = FALSE}
+## DAG Creation & Quantification
+
+In this DAG, we use four variables to test for a correlation between the number of birds struck. The variables are included: Effect, ConditionsSky, FlightPhase, OriginState, and Damage with FlightPhase being the exposure variable and the other three are confounders. We also take the previously made bar plot to see which flight phase had the most average bird strikes to gain information into the DAG. To gain insight into the relationships between variables, we use a linear regression model due to the variables being categorical. An ANOVA test could have been done, but I wanted to quantify the variables utilizing a 0.05 alpha to test for the P_Values being under the threshold. If the variable is under the threshold, we can conclude that there is a statistically significant relationship between the variable and NumberStruckActal. This information will be taken into the Bayesian parameter estimation model to estimate a causal relationship between flightPhase and numberStruckActual including the confounders found here. 
+
+```{r DAG finding, include = FALSE, echo = FALSE}
+
+# Fit a linear model for each combination to build the DAG
+model <- lm(NumberStruckActual ~ FlightPhase, data = data)
+summary(model)
+
+model <- lm(NumberStruckActual ~ Effect, data = data)
+summary(model)
+
+model <- lm(NumberStruckActual ~ ConditionsSky, data = data)
+summary(model)
+
+model <- lm(NumberStruckActual ~ Damage, data = data)
+summary(model)
+
+model <- lm(NumberStruckActual ~ OriginState, data = data)
+summary(model)
+
+# Example: Correlation/Chi-square for inter-variable relationships
+chisq.test(table(data$FlightPhase, data$ConditionsSky)) 
+chisq.test(table(data$Damage, data$ConditionsSky)) 
+chisq.test(table(data$FlightPhase, data$Damage)) 
+chisq.test(table(data$Effect, data$ConditionsSky))
+chisq.test(table(data$OriginState, data$ConditionsSky))
+
+anova_result <- aov(Altitude ~ FlightPhase, data = data) # Example for mixed variables
+summary(anova_result)
+
+
+```
+
+```{r DAG Output, include = TRUE, echo = FALSE}
 # Construct DAG
+
 dag <- dagitty("
 dag {
-  AircraftType -> NumberStruckActual
-  WeatherConditions -> NumberStruckActual
-  TimeOfDay -> NumberStruckActual
   FlightPhase -> NumberStruckActual
-}
-")
+  ConditionsSky -> NumberStruckActual
+  Effect -> NumberStruckActual
+  Damage -> NumberStruckActual
+  OriginState -> FlightPhase
+  OriginState -> ConditionsSky
+  FlightPhase -> Altitude
+  FlightPhase -> Damage
+  Effect -> ConditionsSky
+  Origin -> ConditionsSky
+  Damage -> ConditionsSky
+  Effect -> Damage
+}")
 
 # Plot the DAG
 ggdag(dag) +
@@ -72,67 +116,86 @@ ggdag(dag) +
 ```
 
 # Bayesian Parameter Estimation + Causal Inference
-```{r bayesianParamEstimation, echo = FALSE, include = TRUE}
-# Fit Bayesian Poisson regression
-bayesian_model <- stan_glm(
-  NumberStruckActual ~ FlightPhase,
+
+For the bayesian parameter estimation portion, we test multiple different priors to see which ones are the best fit to the dataset. After running the models, the one I use is as follows. The priors that were chosen are weakly informative priors of a normal distribution, with a mean of 0 and variation of 2.5. The family is a negative binomial regression model with a log link function. The response variable is NumberStruckActual that is count data showing the number of bird strikes. The predictors are flight phase, conditionsSky, Effect, Damage, and OriginState. The link function is a log function as we want a log-linear function of the predictors to ensure values are positive. The predictor coefficients, or the prior, is a normal prior for the coefficients, assuming that most predictors will have little or no influence on the outcome but with moderately large variation of 2.5. The prior intercept is a normal prior with a mean of 0 and variation of 5 so the model can have a larger baseline counts of bird strikes which shows more uncertainty. The model has 4 chains with 8000 iterations so that we can have a larger posterior sample size and having more robust posterior estimaties. The negative binomial family handles overdispersion where variance exceeds mean and response variable as bird strikes have very high variability across the dataset. 
+
+```{r bayesianParamEstimation, echo = FALSE, include = FALSE}
+# Fitting a bunch of different ones with different priors 
+
+# Trying model with: Student-T and poisson
+# bayesian_model <- stan_glm(
+#  NumberStruckActual ~ FlightPhase + ConditionsSky + Effect + Damage + OriginState,
+#  data = data,
+#  family = poisson(link = "log"),
+#  prior = student_t(3, 0, 2.5),  # Use Student-t prior instead of normal!
+#  prior_intercept = student_t(3, 0, 5),
+#  chains = 4, iter = 8000
+#)
+#summary(bayesian_model)
+
+# Trying model with: Normal and poisson
+#bayesian_model_norm <- stan_glm(
+#  NumberStruckActual ~ FlightPhase + ConditionsSky + Effect + Damage + OriginState,
+#  data = data,
+#  family = poisson(link = "log"),
+#  prior = normal(0, 2.5),
+#  prior_intercept = normal(0, 5),
+#  chains = 4, iter = 8000 
+#)
+#summay(bayesian_model_norm)
+
+# Trying model with: Normal and Neg Binomial
+# USING THIS ONE
+bayesian_model_nb <- stan_glm(
+  NumberStruckActual ~ FlightPhase + ConditionsSky + Effect + Damage + OriginState,
   data = data,
-  family = poisson(link = "log"),
+  family = neg_binomial_2(link = "log"),
   prior = normal(0, 2.5),
   prior_intercept = normal(0, 5),
-  chains = 4, iter = 2000
+  chains = 4, iter = 8000
 )
+summary(bayesian_model_nb)
+
+```
+
+```{r summary, echo = FALSE, include = TRUE}
 
 # Summarize model output
-print(summary(bayesian_model))
+print(summary(bayesian_model_nb))
 
 # Extract posterior intervals
-posterior_intervals <- posterior_interval(bayesian_model, prob = 0.95)
+posterior_intervals <- posterior_interval(bayesian_model_nb, prob = 0.95)
 print(posterior_intervals)
 
 # Plot posterior distributions
 mcmc_areas(
-  as.matrix(bayesian_model),
+  as.matrix(bayesian_model_nb),
   pars = c("(Intercept)", 
            "FlightPhaseClimb", 
            "FlightPhaseLanding Roll", 
-           "FlightPhaseTake-off run")
+           "FlightPhaseTake-off run",
+           "FlightPhaseDescent",
+           "FlightPhaseParked",
+           "FlightPhaseTaxi")
 ) +
   labs(title = "Posterior Distributions of Flight Phase Effects")
 
-# Posterior predictive checks
-pp_check(bayesian_model, plotfun = "dens_overlay") +
+# PP CHECK
+pp_check(bayesian_model_nb, plotfun = "dens_overlay") +
   labs(title = "Posterior Predictive Check")
 
 ```
+
+
 # ~~~~~ RESULTS ~~~~~
+From the results of the model, we can reach a conclusion and answer our research question. Overall, the model was able to find a relationship between flight phase and number of bird strikes while accounting for weather conditions, aircraft effects, damage levels, and origin states as possible confounders. Overall, the key findings were as follows. Climb has a posterior mean of near 0 which means there is very little evidence of this phase being associated with more bird strikes than the baseline. The landing roll has a posterior mean of 0.2 which means there is a significant positive association with bird strikes. The Take-off run has a posterior mean of 0.2 as there is also a significant increase in bird strikes during this phase. The last phase descent has a posterior mean is -0.3 which means there is a reduced risk of bird strikes relative to the baseline. The overcast conditions also have a positive association with bird strikes. The some cloud conditions have a posterior mean of 0 which means there is no significant association with bird strikes. The engine shut down and precautionary landing has a posterior mean of 1.2 which is a strong asosciation with increased bird strike counts. The origin state of delaware and montana both have a positive strong association with bird strike counts. 
 
-Analysis of Results
+When we analyze the posterior predictive check graph, it seems like the data is extremely right skewed. Unfortunately a lot of the bird strikes are very small or 0 because most flights dont hit many birds. The prior family of a negative binomial should capture the overdispersion but it seems like the plot is very skewed. There seems to have a long tail due to extreme values occurring in the dataset. However, the peak at 0 means that the model captures the proportion of flights with zero or very few bird strikes. Even though the graph is not great, it does show that the model is well fit to the data that is present, even though its skewed. 
 
-1. Posterior Distributions:
-The plot of posterior distributions shows the estimated effects of different flight phases on bird strikes.
-The intercept represents the baseline effect (likely the log of mean strikes when no specific phase is present).
-Positive effects (e.g., for FlightPhaseClimb and FlightPhaseTake-off run) indicate these phases are associated with a higher number of bird strikes relative to the baseline.
-Negative effects (e.g., FlightPhaseDescent and FlightPhaseParked) suggest a reduced association compared to the baseline.
+Based on the prior distributions of landing roll and take off run, these are the flight phases most strongly associated with higher bird strike counts. These findings show that these phases are greater risks for bird strikes, alongside the confounders that can be taken into account to make data driven actions. For example, environmental conditions and flight context influence likelihood of bird strikes. Weather conditions such as overcast and engine shutdowns contribute to more bird strikes. 
 
-2. Credible Intervals:
-The 95% credible intervals for FlightPhaseClimb and FlightPhaseTake-off run are entirely positive, indicating significant positive associations with bird strikes.
-FlightPhaseParked has a wide credible interval, crossing negative values, which suggests uncertainty and potentially non-significant results.
-FlightPhaseTaxi spans both positive and negative values, indicating ambiguity in its effect.
-
-3. Posterior Predictive Check:
-The predictive check shows the alignment of simulated data (y_rep) with the observed data (y).
-A strong overlap between the two indicates that the model fits the observed data well.
-The plot shows extreme values (e.g., very high bird strikes), suggesting potential overdispersion or outliers in the dataset. Consider further diagnostics to assess model fit for extreme counts.
-
-4. MCMC Diagnostics:
-Rhat values are all 1.0, indicating good convergence of chains.
-Effective sample sizes (n_eff) are high across parameters, ensuring reliable posterior estimates.
-Monte Carlo Standard Errors (mcse) are low, indicating precise estimates of posterior means.
-
-Key Takeaways:
-Climb and Take-off run phases are strongly associated with higher bird strikes.
-The causal impact of flight phases is evident, but further modeling (e.g., including confounders like weather conditions or wildlife size) can refine the results.
-The results suggest that bird strike mitigation strategies should focus more on the climb and take-off run phases.
+To answer the causal portion of the question, the model will be utilized to assess causal effects. Climb and take-off run have positive coefficients which indicate a higher number of bird strikes relative to the baseline. The credible intervals do not cross zero which suggest a strong evidence of a causal relationship. Landing roll is still positive but has a smaller effect than the other two phases. Parked and Taxi have negative coefficients which means there are fewer bird strikes compared to baseline which mean these phases are less likely to contribute to bird strikes causally, since their credible intervals cross zero. From the DAG, we control the weather conditions, geographical location, damage and effects. When we add them into our model, we control for them to isolate the causal impact of the flight phase on number of bird strikes. Since the narrow credible intervals of climb (0.1 - 0.2) and Take-off run (0.14 - 0.22), these are key contributers to bird strikes. The bayesian model not only answered the correlation portion, but also led us to a causal inference conclusion. 
 
 # ~~~~~ DISCUSSION ~~~~~
+The findings that were discussed in the results section covered the numerical analysis results, but there are certain limitations to this analysis. Not only can we not actually control for variables in flights as the weather can not be controlled, we have to accept that there is a lot of uncertainty in this analysis. We can quantify our causal analysis and correlations to our numerical analysis with uncertainty factored in, but in reality we can't control for all of those counfounders. The outputs, however, were in line with what I had previously assumed that has the most bird strikes. By confirming it with posterior predictive checks, we can ensure that the priors were fit for the model.  
+
