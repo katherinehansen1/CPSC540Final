@@ -6,7 +6,7 @@ editor: visual
 
 ## Natalie Huante - Question #2 Response
 
-***Question:*** **Does the month in which the flight takes place have an effect on how frequently a bird strike is likely to occur?**
+***Seasonality & Trends:*** **Does the month of the year affect the count of bird strikes and, if so, which months are riskier? Are bird strikes increasing over the years?**
 
 ### Loading the Dataset
 
@@ -23,7 +23,7 @@ head(data)
 
 ### Step 1. Extract the month of the flight data into a new column "Month"
 
-The data set we are working with currently has a column "FlightDate" that contains both the time and date at which each recorded bird strikes took place. If we want to observe the effects that each month might have, we first will have to extract the month from this column. We will keep track of this in a new column called "Month" and we will treat it as a categorical variable.
+The data set we are working with currently has a column "FlightDate" that contains both the time and date at which each recorded bird strike took place. If we want to observe the effects that each month might have, we first will have to extract the month from this column. We will keep track of this in a new column called "Month" and we will treat it as a categorical variable.
 
 ```{r}
 # verify flight data is in the correct timedate format
@@ -82,17 +82,17 @@ ggplot(strikes_per_month, aes(x = Month, y = Count, fill = Month)) +
 
 Now that we have set up the necessary variables, we can fit a GLM (generalized linear model) to model the relationship we are after (the month in which the flight took place and the relative frequency of bird strikes in that month). Our GLM will use a poisson distribution since we are dealing with count data. Our predictor will be the month and the outcome will be the strike count recorded for that month.
 
-The GLM below will produce coefficients that will represent the log-relative rate of bird strikes compared to the intercept, which in this case will be the month of January. So, if a month has a positive coefficient that will represent a higher bird strike rate compared to January, while a negative coefficient will represent a lower bird strike rate compared to January. To visualize this more, we will calculate the confindence intervals for each of the months and observe whether they include the value of 0 within this interval. If they do, that would indicate there is a fairly likely possibility that there is an affect of 0, or that there is no affect, whereas if they don't contain 0, it would support the conclusion that there is an affect for that particular month. We visualize these results in a graph as well.
+The GLM below will produce coefficients that will represent the log-relative rate of bird strikes compared to the intercept, which in this case will be the month of January. So, if a month has a positive coefficient that will represent a higher bird strike rate compared to January, while a negative coefficient will represent a lower bird strike rate compared to January. To visualize this more, we will calculate the confidence intervals for each of the months and observe whether they include the value of 0 within this interval. If they do, that would indicate there is a fairly likely possibility that there is an effect of 0, or that there is no affect, whereas if they don't contain 0, it would support the conclusion that there is an effect for that particular month.
 
-***Covariates:*** The GLM also includes potential covariates we identified as possibly also having an influence on the relative rate of bird strikes. We include these in the model in order to get a more accurate direct causal estimate of the month on the rate. Some of these include variables that contain information about the region in which the flight took place, it's altitude and flight phase, the aircraft's size, and the weather conditions at the time of the flight. All of these could also have an impact on whether a bird strike might occur, so we consider their effects on the relative rate as well, as we calculate our coefficients.
+***Co-Variates:*** The GLM also includes potential co-variates we identified as possibly also having an influence on the relative rate of bird strikes. We include these in the model in order to get a more accurate direct causal estimate of the month on the rate. Some of these include variables that contain information about the region in which the flight took place, it's altitude and flight phase, the aircraft's size, and the weather conditions at the time of the flight. All of these could also have an impact on whether a bird strike might occur, so we consider their effects on the relative rate as well, as we calculate our coefficients.
 
-***Side Note:*** We ran into some issues at this point in modeling the GLM given the following: the GLM below is using an aggregate of the strike count per month in it's calculations. Therefore, we cannot include covariates from individual entries (from the original data table) in the model. After considering multiple approaches, a possible solution would be to aggregate any covariates and add that to the strikes_per_month table. For instance, for altitude, we could take the mean of all the altitude values recorded for each month, and store that average in a new column in the strikes_per_month table. However, this could invalidate the covariates as they would lose variability. For example, if we look at categorical variables, aggregating an average wouldn't really make sense. This variable would lose any meaning at the monthly-level. So, at this point we can choose to either aggregate covariates (with the potential of them losing their meaning) or accepting the limitation in our model. Let's break down each of the variables we would have considered as covariates and decide whether we should include their aggregated values or not.
+***Side Note:*** We ran into some issues at this point in modeling the GLM given the following: the GLM below is using an aggregate of the strike count per month in it's calculations. Therefore, we cannot include co-variates from individual entries (from the original data table) in the model. After considering multiple approaches, a possible solution would be to aggregate any co-variates and add that to the strikes_per_month table. For instance, for altitude, we could take the mean of all the altitude values recorded for each month, and store that average in a new column in the strikes_per_month table. However, this could invalidate the co-variates as they would lose variability. For example, if we look at categorical variables, aggregating an average wouldn't really make sense. This variable would lose any meaning at the monthly-level. So, at this point we can choose to either aggregate co-variates (with the potential of them losing their meaning) or accepting the limitation in our model or collect more data about flights where bird strikes did not occur in order to use then calculate the causal estimate on the bird strike's possibility. Let's break down each of the variables we would have considered as co-variates and decide whether we should include their aggregated values or not.
 
 -   **Altitude** - We will include a mean of the altitudes of all flights within each month. Perhaps in one month most flights flew higher than others and this could have an impact on the count of bird strikes recorded.
 -   **Airport, OriginState** - We won't include these. These variables are stored as characters, so aggregating wouldn't make much sense unless we were to calculate proportions of some kind. However, for the simplicity of this model, we will exclude these.
--   **FlightPhase, ConditionsSky, ConditionsPrecipitation, PilotWarned, IsAircraftLarge?** - We will include these and we will calculate the proportions for each of the meaningful values that could contain. For example, for FlightPhase we will include the proportion of each value (Parked, Descent, etc.) while for PilotWarned we will only include the proportion for the incidents where the value is 'Y'.
+-   **FlightPhase, ConditionsSky, ConditionsPrecipitation, PilotWarned, IsAircraftLarge?** - We will include these and we will calculate the proportions for each of the meaningful values that it could contain. For example, for FlightPhase we will include the proportion of each value (Parked, Descent, etc.) while for PilotWarned we will only include the proportion for the incidents where the value is 'Y'.
 
-Based on the above remarks, we will include the aggregates of only those variables that would remain meaningful at the monthly-level. However, for those which multiples categories, we will include all but one of the categories in order to avoid perfect multicollinearity. If we do not do so, it will be impossible to calculate the effect of each inidividual category since they will add up to 1 (or cover all the possible values for that one variable).
+Based on the above remarks, we will include the aggregates of only those variables that would remain meaningful at the monthly-level. However, for those which multiples categories, we will include all but one of the categories in order to avoid perfect multicollinearity. If we do not do so, it will be impossible to calculate the effect of each individual category since they will add up to 1 (or cover all the possible values for that one variable).
 
 ```{r}
 # Aggregate covariates to the monthly level
@@ -124,7 +124,7 @@ monthly_data
 
 ```
 
-Now that we have added the covariate aggregates to our monthly data table, we can fit the glm to that table and include the covariates as well.
+Now that we have added the coevariate aggregates to our monthly data table, we can fit the GLM to that table and include the co-variates as well.
 
 ```{r}
 # fit the glm with covariates
@@ -146,9 +146,34 @@ confint(q2_glm_model)
 
 As we can see, the coefficient for Month01 (the Intercept) is 6.84. This represents the log-count of the bird strikes we see. So, in this case, we can calculate e to the power of 6.84 to get the bird strike count for January. The remaining months have coefficients that represent the relative log-count. So, for instance, Month02's coefficient indicates there to be a mean difference of -0.19 in what we take e to the power of to get the count of strikes in February. This logic can be applied to the other months as well. We point this out to address any confusion as to why Month01 has a much larger coefficient compared to the other months. Really, this is only the case because the remaining months 02-12 are simply calculated to be relative to the first month.
 
-As we can see, each individual month, with the exclusion of December, has a 95% confidence interval that does not include the value 0, which indicates that there it is pretty likely there is an affect on the count of bird strikes observed. The size of the effect varies from month to month, with the fall months showing the biggest deviation from January's intercept value. July through August have a log-coefficient of above 1, meaning we will add 1+ to January's 6.77 when we take e to the power of that value. If we convert these to rate ratios (do the e to the power of calculation), we would see that for July it is above 3.5, so the bird strikes in July occur about 3.5 times the rate at which we see in January. Therefore, we can conclude that, with the exception of December, each individual month had a relative affect on the rate of bird strikes expected, with January as the baseline.
+As we can see, each individual month, with the exclusion of December, has a 95% confidence interval that does not include the value 0, which indicates that there it is pretty likely there is an affect on the count of bird strikes observed. The size of the effect varies from month to month, with the fall months showing the biggest deviation from January's intercept value. July through August have a log-coefficient of above 1, meaning we will add 1+ to January's 6.84 when we take e to the power of that value. If we convert these to rate ratios (do the e to the power of calculation), we would see that for July it is above 3.5, so the bird strikes in July occur about 3.5 times the rate at which we see in January. Therefore, we can conclude that, with the exception of December, each individual month has a relative affect on the rate of bird strikes expected, with January as the baseline.
 
-**So, if we look at the big picture, we could conclude that based on our data, the month at which a flight takes place does have an effect on how frequent bird strikes occur, with summer and fall months generally having more frequent strikes and spring and winter months having less frequent strikes.**
+**So, if we look at the big picture, we could conclude that based on our data, the month at which a flight takes place does have an effect on how frequent bird strikes occur, with summer and fall months generally having more frequent strikes and spring and winter months having less frequent strikes. Below is a visualization of the rate ratios, for easier interpretation.**
+
+```{r}
+# get the coefficients and conf int of the glm model 
+coeffs <- coef(q2_glm_model)
+conf <- confint(q2_glm_model)
+
+# let's calculate the rate ratios woo
+rate_ratios <- exp(coeffs)
+conf_exp <- exp(conf)
+
+# rate ratio data needed in a data fram 
+rate_ratio_data <- data.frame(
+  Month = names(rate_ratios), # get all the month names
+  RateRatio = rate_ratios, 
+  LowerCI = conf_exp[, 1], 
+  UpperCI = conf_exp[, 2]
+)
+
+# Take out January (bc it's the baseline/reference)
+rate_ratio_data <- rate_ratio_data[rate_ratio_data$Month != "(Intercept)"]
+
+# 
+
+
+```
 
 ### Step 5: Discussion
 

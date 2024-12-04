@@ -1,0 +1,281 @@
+---
+title: "Question2_Report_V02"
+format: html
+editor: visual
+---
+
+## Natalie Huante - Question #2 Response
+
+***Seasonality & Trends:*** **Does the month of the year affect the count of bird strikes and, if so, which months are riskier? Are bird strikes increasing over the years?**
+
+### Loading the Dataset
+
+Loading in the dataset and printing out the first few rows to verify that it was loaded in correctly.
+
+```{r}
+library(readr)
+
+data <- read_delim("../Bird_strikes.csv", delim = ",")
+
+print(data)
+
+```
+
+### Aggregate Data
+
+The first step is to summarize our bird strike data by month and year. Since we are concerned with the number of bird strikes that has been recorded within each month, we should calculate the total strike counts by month and year.
+
+The original data set has a variable, "FlightDate", that contains the date in which the flight took place. We will take this value, extract the month and year. We will then aggregate the data on those values and store the monthly counts in a new table.
+
+```{r}
+# library import
+library(dplyr)
+
+# let's make sure the variable is in date format
+data$FlightDate <- as.Date(data$FlightDate, format = "%m/%d/%y %H:%M")
+
+# extract the month and the date from this variable and store in new columns
+data$Year <- format(data$FlightDate, "%y")
+data$Month <- format(data$FlightDate, "%m")
+
+# tables of aggregated counts
+strikes_by_month <- data %>% 
+  group_by(Year, Month) %>% 
+  summarise(Count = n())
+
+# verify the new table was created correctly
+print(strikes_by_month)
+
+```
+
+
+
+
+### Regression Model
+
+Now that we have aggregated our data, we want to fit our regression model. We will set the count of bird striker for each month-year as the outcome and the predictors as the month and year in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
+
+We will use a poisson regression model because we are working with count data, so a poisson distribution is most appropriate. For the link function, we include a log function because XXXX
+
+As a quick note, the count of bird strikes and the year are both continuous variables, while the month is a categorical variable. So, the coefficients of our model will indicate the following: \* The coefficients for *Month* will represent the relative risk of bird strikes compared to the baseline, which will be the month of January, or Month01. This will help us look at seasonality. \* The coefficients for *Year* will represent the expected increase or decrease in bird strikes for each year compared to the baseline, which will be the year 2000. This happens to be the earliest year in our dataset. This will help us look at trends over time and to identify if birds strikes are currently on the decline or the incline. So, to review, our baseline will be January 2000. Each coefficient will represent a relative increase or decrease to this month.
+
+```{r}
+
+# make sure that month is categorical and not continuous
+strikes_by_month$Month <- as.factor(strikes_by_month$Month)
+
+# regression model 
+poisson_model <- glm(Count ~ Month + Year, 
+                     data = strikes_by_month, 
+                     family = poisson(link = "log"))
+
+# output the coefficients 
+summary(poisson_model)
+
+# look at the confidence intervals for uncertainty
+confint(poisson_model)
+
+```
+
+Given the above output, we can interpret not only the coefficients, but also the confidence intervals of our results in order to assess the certainty of our results.
+
+**Month Coefficients:** Let's take Month02's (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is e\^-0.1937 or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
+
+FIXME: FORMAT INTO A TABLE BRUH 
+
+-   Month01 (January)(Intercept/Baseline): 1 (0% difference)
+-   Month02 (February): $(e^{-0.1937})*100=82.4\%$ (-17.6% difference)
+-   Month03 (March): $(e^{0.27452})*100 = 131.6\%$ (+31.6% difference)
+-   Month04 (April): $(e^{0.6683})*100 = 195.1\%$ (+95.1% difference)
+-   Month05 (May): $(e^{0.9058})*100 = 247.4\%$ (+147.4% difference)
+-   Month06 (June): $(e^{0.7965})*100 = 221.7\%$ (+121.7% difference)
+-   Month07 (July): $(e^{1.2523})*100 = 349.9\%$ (+249.9% difference)
+-   Month08 (August): $(e^{1.3761})*100 = 395.9\%$ (+295.9% difference)
+-   Month09 (September): $(e^{1.2938})*100 = 364.5\%$ (+264.5% difference)
+-   Month10 (October): $(e^{1.1763})*100 = 324.3\%$ (+224.3% difference)
+-   Month11 (November): $(e^{0.6534})*100 = 192.2\%$ (+95.2% difference)
+-   Month12 (December): $(e^{0.0839})*100 = 108.8\%$ (+8.8% difference)
+
+Now, while the coefficients suggest one conclusion, we also calculate the 95% confidence intervals for each month's effect. This is important to consider because if any month's confidence interval contains the value of 0, then that means that the possibility of the month having no effect in comparison to our baseline is within our range of likely effect values. Therefore, we would be more uncertain about that particular month's observed effects being significant and enough to conclude there is an effect. 
+
+Below is a graph that will visualize the relative percentages listed compared to the baseline of January, along with the confidence intervals for each month.
+
+```{r}
+# library imports 
+library(ggplot2)
+
+# month names
+month_names <- c("February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+# month coefficients converted to relative percentage difference
+month_relative_percentage_diff <- c(-17.6, 31.6, 95.1, 147.4, 121.7, 249.9, 295.9, 264.5, 224.3, 92.2, 8.8)
+
+# month lower confidence interval converted to relative percentage difference
+lower_ci_percentage_diff <- c(-24.9, 20.9, 80.2, 129.3, 105.3, 224.8, 269.2, 240.9, 201.4, 77.6, -0.5)  
+
+# month upper confidence interval converted to relative percentage difference
+upper_ci_percentage_diff <- c(-9.4, 43.2, 111.1, 164.7, 135.5, 273.4, 320.3, 289.4, 250.0, 107.5, 18.9)  
+
+
+
+# create data frame for the plot 
+percentage_diff_data <- data.frame(
+                          Month = month_names,
+                          PercentDiff = month_relative_percentage_diff,
+                          LowerCI = lower_ci_percentage_diff,
+                          UpperCI = upper_ci_percentage_diff
+)
+
+# make sure the order of months remains intact (feb --> dec)
+percentage_diff_data$Month <- factor(percentage_diff_data$Month, 
+                                     levels = c("February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
+
+ 
+
+# plot 
+ggplot(percentage_diff_data, aes(x = Month, y = PercentDiff)) +
+    geom_point(size = 3, color = "blue") +
+    geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2, color = "black") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") + # no relative difference
+    labs(
+      title = "Percentage Change in Bird Strike Rates by Month (Relative to January)",
+      x = "Month",
+      y = "Percentage Change (%)"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+**Year Coefficients:** We can take a similar approach with the coefficients for each year in the model's output. Like the month coefficients, the year coefficients also represent the log-relative rate of bird strikes for each year compared to the baseline year, which is the year 2000. So, each coefficient represents the relative increase or decrease in expected bird strikes for that year. We can look at the group of coefficients chronologically to then make conclusions and/or observations about whether there has been a trend of increasing/decreasing rate over time or if there are any years that showed unexpected results. To make these coefficients easier to interpret, we will apply the same conversion from log-relative rates to percentage relative rates, which will give us the difference in percentage change, compared to 2000. Below, we include these calculations. 
+
+FIXME: FORMAT INTO A TABLE BRUH 
+
+-   2000 (Intercept/Baseline): 1 (0% difference)
+-   2001: $(e^{-0.1056})*100 = 90\%$ (-10.0% difference)
+-   2002: $(e^{0.2068})*100 = 123\%$ (+23.0% difference)
+-   2003: $(e^{0.1372})*100 = 114.7\%$ (+14.7% difference)
+-   2004: $(e^{0.2133})*100 = 123.8\%$ (+23.8% difference)
+-   2005: $(e^{0.3042})*100 = 135.5\%$ (+35.5% difference)
+-   2006: $(e^{0.4570})*100 = 158.0\%$ (+58.0% difference)
+-   2007: $(e^{0.5207})*100 = 168.3\%$ (+68.3% difference)
+-   2008: $(e^{0.5019})*100 = 165.2\%$ (+65.2% difference)
+-   2009: $(e^{0.8651})*100 = 237.5\%$ (+137.5% difference)
+-   2010: $(e^{0.8255})*100 = 228.3\%$ (+128.3% difference)4
+-   2011: $(e^{0.7699})*100 = 215.9\%$ (+115.9% difference)4
+
+Below is a graph that will visualize the relative percentages listed compared to the baseline of 2000, along with the confidence intervals for each year.
+
+```{r}
+# library imports 
+library(ggplot2)
+
+# year names
+year_names <- c("2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011")
+
+# month coefficients converted to relative percentage difference
+year_coeffs = c(-0.1056, 0.2068, 0.1372, 0.2133, 0.3042, 0.4570, 0.5207, 0.5019, 0.8651, 0.8255, 0.7699) 
+
+# month lower confidence interval converted to relative percentage difference
+lower_ci_coeffs <- c(-0.1827, 0.1355, 0.0647, 0.1421, 0.2344, 0.3894, 0.4540, 0.4349, 0.8022, 0.7622, 0.7060)
+
+# month upper confidence interval converted to relative percentage difference
+upper_ci_coeffs <- c(-0.0286, 0.2782, 0.2098, 0.2847, 0.3742, 0.5250, 0.5879, 0.5692, 0.9286, 0.8894, 0.8342)
+
+
+# convert the coefficients 
+year_rate_ratios <- exp(year_coeffs)
+percentage_changes <- (year_rate_ratios - 1) * 100
+lower_percentage <- (exp(lower_ci_coeffs) - 1) * 100
+upper_percentage <- (exp(upper_ci_coeffs) - 1) * 100
+
+
+# create data frame for the plot 
+year_percentage_diff_data <- data.frame(
+                          Year = year_names,
+                          PercentDiff = percentage_changes,
+                          LowerCI = lower_percentage,
+                          UpperCI = upper_percentage
+)
+
+# make sure the order of months remains intact (feb --> dec)
+year_percentage_diff_data$Year <- factor(year_percentage_diff_data$Year, 
+                                     levels = c("2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011"))
+
+ 
+
+# plot 
+ggplot(year_percentage_diff_data, aes(x = Year, y = PercentDiff)) +
+    geom_point(size = 3, color = "blue") +
+    geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2, color = "black") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") + # no relative difference
+    labs(
+      title = "Percentage Change in Bird Strike Rates by Year (Relative to 2000)",
+      x = "Year",
+      y = "Percentage Change (%)"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+### Results - FIXME
+
+**Question 1:** Does the month of the year affect the count of bird strikes and, if so, which months are riskier?
+
+As we can see in the output of our 
+
+**Question 2:** Are bird strikes increasing over the years?
+
+
+
+
+```{r}
+library(ggplot2)
+
+year_comparison_data <- data.frame(
+      Year = rep(c(2000, 2005, 2011), each = 12),
+      Month = rep(1:12, 3),
+      Count = c(45, 57, 80, 103, 118, 117, 158, 189, 185, 176, 103, 36, # 2000
+                66, 58, 101, 117, 157, 140, 224, 263, 271, 243, 126, 87, # 2005
+                120, 81, 142, 227, 268, 250, 354, 383, 429, 369, 219, 110) # 2011
+)
+      
+ggplot(year_comparison_data, 
+      aes(x = Month, y = Count, group = Year, color = as.factor(Year))) +
+      geom_line(size = 1.2) +
+      geom_point(size = 3) +
+      scale_x_continuous(breaks = 1:12, labels = c("Jan", "Feb", "Mar", "Apr", 
+                                                "May", "Jun", "Jul", "Aug", 
+                                                "Sep", "Oct", "Nov", "Dec")) +
+      labs(
+        title = "Monthly Bird Strikes for Selected Years",
+        x = "Month",
+        y = "Bird Strikes Count",
+        color = "Year") +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top")
+
+
+```
+
+I have included a graph above that provides a visual representation of the count data from the original dataset. This graph aligns with the results of our model. We can see that each of the three years have a similar seasonal pattern where summer and early fall months see an increase in total bird strikes where as winter and early spring months see a decrease in total bird strikes. 
+
+### Discussion - FIXME
+
+- In the future
+  - whether it would make sense to control for weather, # of flights, etc. or if that is implied by the seasonality of things 
+  - has the relative rates of months (the seasonality) changes over time
+
+### References - FINISH 
+
+-   Graphing Palettes
+    -   https://www.r-bloggers.com/2013/09/how-to-expand-color-palette-with-ggplot-and-rcolorbrewer/
+    -   https://stackoverflow.com/questions/9563711/r-color-palettes-for-many-data-classes
+-   R Markdown Syntax
+    -   https://rpruim.github.io/s341/S19/from-class/MathinRmd.html
+    -   https://rmarkdown.rstudio.com/authoring_basics.html
