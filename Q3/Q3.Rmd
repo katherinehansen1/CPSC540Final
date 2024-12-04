@@ -6,6 +6,9 @@ output: html_notebook
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(viridis)
+library(RColorBrewer)
+
 ```
 ```{r}
 data(state)
@@ -30,219 +33,195 @@ data
 
 
 ```{r}
-# Mexico
-mexico <- c(
-  "AQUASCALIENTES",
-  "BENITO JUAREZ INTL",
-  "CANCUN INTL",
-  "COZUMEL MEXICO",
-  "GENERAL ESCOBEDO INTL",
-  "GENERAL IGNACIO P GARCIA INTL",
-  "GENERAL RAFAEL BUELNA INTL",
-  "GUADALAJARA, MEXICO",
-  "GUANAJUATO DEL BAJIO INTL",
-  "IXTAPA-ZIHUATENEJO",
-  "LOS CABOS INTL",
-  "PUERTO VALLARTA",
-  "TOLUCA/LIC ADOLFO",
-  "GENERAL ROBERTO FIERRO VILLALOBOS INTL"
-)
-
-south_america <- c(
-  "COLOMBIA",
-  "GALEAO INTL (RIO)",  # Rio de Janeiro, Brazil
-  "VIRACOPOS-CAMPINAS INTL ARPT",  # Campinas, Brazil
-  "VIRU VIRU INTL",  # Santa Cruz, Bolivia
-  "SIMON BOLIVAR INTL",  # Caracas, Venezuela
-  "MINISTRO PISTARINI",  # Buenos Aires, Argentina
-  "SANTIAGO INTL",  # Santiago, Chile
-  "GUAYAQUIL/S BOLIVAR",  # Guayaquil, Ecuador
-  "GUARULHOS INTL",  # São Paulo, Brazil
-  "ERNESTO CORTISSOZ",  # Barranquilla, Colombia
-  "SAN PEDRO SULA LA MESA",  # San Pedro Sula, Honduras
-  "GUSTAVO ROJAS PINILLA INTL ARPT"  # San Andrés, Colombia
-)
-
-central_america <- c(
-  "BELIZE INTERNATIONAL ARPT",  # Belize
-  "EL SALVADOR INTL",  # San Salvador, El Salvador
-  "MANAGUA INTL ARPT",  # Managua, Nicaragua
-  "SIMON BOLIVAR INTL",  # Caracas, Venezuela (also can be seen as part of South America but is sometimes considered more central due to its location)
-  "LA CHINITA INTL",  # Maracaibo, Venezuela
-  "LA AURORA",  # Guatemala City, Guatemala
-  "CIUDAD DEL ESTE GARCIA",  # Ciudad del Este, Paraguay
-  "CALI/VALLE",  # Cali, Colombia
-  "JUAN SANTAMARIA INTL",  # San José, Costa Rica
-  "SANTA FE DE BOGOTA",  # Bogotá, Colombia
-  "DANIEL ODUBER QUIROS INTL",  # Liberia, Costa Rica
-  "TONCONTIN INTL",  # Tegucigalpa, Honduras
-  "JOSE MARIA CORDOVE ARPT",  # Panama City, Panama
-  "SAN SALVADOR INTL",  # San Salvador, El Salvador
-  "TOCUMEN INTL"
-)
-
-
-# Europe
-europe <- c(
-  "AMSTERDAM SCHIPHOL",
-  "BARCELONA ARPT",
-  "BASEL-MULHOUSE-FREIBURG",
-  "CHARLES DE GAULLE",
-  "COLOGNE-BONN",
-  "COTE D AZUR",
-  "DUBLIN INTL ARPT",
-  "ELEFTHERIOS VENIZELOS INTL",
-  "FERIHEGY ARPT",
-  "FIUMICINO ARPT",
-  "FRANKFURT MAIN",
-  "GALILEO GALILEI ARPT",
-  "GATWICK - LONDON",
-  "HEATHROW - LONDON",
-  "HENRI COANDA INTL ARPT",
-  "LONDON-LUTON ARPT",
-  "MALMO-STURUP ARPT",
-  "MANCHESTER ENGLAND",
-  "MILANO MALPENSA",
-  "MUNICH INTL ARPT",
-  "RAMSTEIN AIR FORCE BASE",
-  "SHANNON INTL",
-  "STANSTEAD-LONDON",
-  "STUTTGART GERMANY",
-  "TREVISO ARPT",
-  "VALENCIA AIRPORT",
-  "VIENNA INTL",
-  "ZURICH",
-  "LIEGE ARPT",
-  "MADRID-BARAJAS",
-  "TREVISO ARPT",
-  "RAMSTEIN AIR FORCE BASE",
-  "SHEREMETYEVO INTL",
-  "SIGONELLA",
-  "LEIPZIG-HALLE",
-  "MARCO POLO INTL",
-  "MALAGA ARPT"
-)
-
-# Africa
-africa <- c(
-  "DAKAR-YOFF-LEOPOLD SEDAR SENGHOR",
-  "MURTALA MUHAMMED",
-  "RAS TANAJIB",
-  "DAKAY-YOFF-LEOPOLD SEDAR SENGHOR"
-)
-
-# Asia
-asia <- c(
-  "BAHRAIN INTL",
-  "BAIYUN AIRPORT",
-  "CAPITAL (BEIJING)",
-  "CLARK INTL",
-  "DOHA INTL",
-  "HONG KONG INTL",
-  "INCHEON INTL",
-  "INDIRA GANDHI INTL",
-  "KUNSAN",
-  "KANSAI INTL",
-  "PU DONG INTL ARPT",
-  "SHENZHEN",
-  "TIANJIN (CHINA)",
-  "TOKYO INTL",
-  "NEW TOKYO INTL",
-  "INCIRLIK AIR BASE",
-  "ROTA",
-  "BOMBAY/MUMBAI",
-  "SUBIC BAY INTL",
-  "PENANG INTL",
-  "RIYAHD AIR BASE"
-)
-
-# Australia & New Zealand
-australia_new_zealand <- c(
-  "HAMILTON ISLAND",
-  "SUVA FIJI",
-  "TAHITI FAAA"
-)
-
-# Caribbean Islands/Countries
-caribbean <- c(
-  "GRANTLEY ADAMS BARBA",
-  "HEWANORRA ST LUCIA",
-  "MELVILLE HALL AIRPORT",
-  "PIARCO TRINIDAD",
-  "PORT-AU-PRINCE INTL",
-  "PUERTO PLATA INTL",
-  "PUNTA CANA INTL",
-  "SANTIAGO CIBAO INTL",
-  "SANTO DOMINGO/LAS AM",
-  "L F WADE INTL ARPT",
-  "LYNDEN PINDLING INTL ARPT",
-  "T B LETTSOME INTL",
-  "PROVIDENCIALES INTL",
-  "WALLBLAKE",
-  "SANGSTER INTL",
-  "ROBT L BRADSHAW INTL",
-  "RAFAEL HERNANDEZ ARPT",
-  "LA ROMANA INTL",
-  "OWEN ROBERTS INTL",
-  "FREEPORT INTL",
-  "ORANJESTAD/REINA BEA",
-  "ST. LUCIA-VIGIE",
-  "NORMAN MANLEY INTL",
-  "V C BIRD INTL ARPT",
-  "PRINCESS JULIANA"
-)
-
-
-```
-
-
-```{r}
-assign_region <- function(airport_name) {
-  # Check each region and return the corresponding region if the airport is found
-  if (airport_name %in% mexico) {
-    return("Mexico")
-  } else if (airport_name %in% south_america) {
-    return("South America")
-  } else if (airport_name %in% central_america) {
-    return("Central America")
-  } else if (airport_name %in% europe) {
-    return("Europe")
-  } else if (airport_name %in% africa) {
-    return("Africa")
-  } else if (airport_name %in% asia) {
-    return("Asia")
-  } else if (airport_name %in% australia_new_zealand) {
-    return("Australia/New Zealand")
-  } else if (airport_name %in% caribbean) {
-    return("Caribbean")
-  } else {
-    return("Other")  # If airport is not found in any region, mark as "Other"
-  }
-}
-```
-
-```{r}
-data$AirportRegion <- sapply(data$AirportName, assign_region)
-data$AirportRegion <- ifelse(data$OriginState %in% state.name, "US", ifelse(data$OriginState == "", data$AirportRegion, ifelse(data$OriginState == "DC", "US", "Canada")))
-data$AirportRegion <- factor(data$AirportRegion)
-```
-
-
-```{r}
 lr <- lm(NumberStruckActual ~ Altitude + Engines + FlightPhase + ConditionsPrecipitation+ ConditionsSky + PilotWarned + AirportRegion, data = data)
+summary(lr)
+```
+```{r}
+levels(data$AirportRegion)
+```
+
+### map stuff
+
+```{r}
+library(maps)
+library(ggplot2)
+```
+
+
+
+
+```{r}
+region.adder <- function(df, state){
+  northeast <- c("maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut", "new york", "new jersey", "pennsylvania", "delaware", "maryland")
+  west <- c("washington", "california", "oregon", "idaho", "montana", "wyoming", "utah", "nevada", "colorado")
+  southwest <- c("arizona", "new mexico", "texas", "oklahoma")
+  southeast <- c("west virginia", "virginia", "kentucky", "north carolina", "south carolina", "arkansas", "louisiana", "mississippi", "alabama", "georgia", "florida", "tennessee")
+  midwest <- c("north dakota", "south dakota", "minnesota", "wisconsin", "michigan", "nebraska", "kansas", "iowa", "missouri", "illinois", "indiana", "ohio")
+  alaska <- c("alaska")
+  hawaii <- c("hawaii")
+  region <- rep(NA, nrow(df))
+  
+  for (i in 1:nrow(df)){
+    if (df$OriginState[i] %in% northeast) region[i] = "northeast"
+    else if (df$OriginState[i] %in% west) region[i] = "west"
+    else if (df$OriginState[i] %in% southwest) region[i] = "southwest"
+    else if (df$OriginState[i] %in% southeast) region[i] = "southeast"
+    else if (df$OriginState[i] %in% midwest) region[i] = "midwest"
+    else if (df$OriginState[i] %in% alaska) region[i] = "alaska"
+    else if (df$OriginState[i] %in% hawaii) region[i] = "hawaii"
+    else region[i] = NA
+    }
+  return (region)
+}
+
+```
+
+```{r}
+data_us_only <- data[data$OriginState != "",]
+data_us_only <- data_us_only[data_us_only$OriginState %in% state.name, ]
+data_us_only <- data_us_only[!data_us_only$OriginState %in% c("Alaska", "Hawaii"), ]
+
+data_us_only
+```
+
+```{r}
+data_us_only$OriginState <- as.character(data_us_only$OriginState)
+data_us_only$OriginState <- tolower(data_us_only$OriginState)
+data_us_only$OriginState <- factor(data_us_only$OriginState)
+data_us_only$region <- region.adder(data_us_only, OriginState)
+
+data$OriginState[5]
+data_us_only
+```
+### Question a.
+
+```{r}
+lr <- lm(NumberStruckActual ~ Altitude + Engines + FlightPhase + ConditionsPrecipitation+ ConditionsSky + PilotWarned + region, data = data_us_only)
 summary(lr)
 ```
 
 
+
 ```{r}
-anova <- aov(NumberStruckActual ~ AirportRegion, data = data)
+library(usmap)
+state <- map_data("state")
+
+```
+
+```{r}
+merged_data <- left_join(state, data_us_only[, c("OriginState", "NumberStruckActual", "region")], 
+                     by = c("region" = "OriginState"))
+```
+
+```{r}
+state_avg <- merged_data %>%
+  group_by(region) %>%
+  summarize(avg_struck = mean(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(state_avg, by = "region") 
+
+state_max <- merged_data %>%
+  group_by(region) %>%
+  summarize(max_struck = max(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(state_max, by = "region") 
+
+
+region_avg <- merged_data %>%
+  group_by(region.y) %>%
+  summarize(region_avg = mean(NumberStruckActual, na.rm = TRUE))
+
+# Join the calculated average values back to the merged_data dataframe
+merged_data <- merged_data %>%
+  left_join(region_avg, by = "region.y")
+```
+
+
+```{r}
+ggplot(merged_data, aes(x=long, y=lat, fill = avg_struck, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Average Number of Birds Struck per Incident by State') + 
+  scale_fill_viridis(name = "Avg # Struck", limits = c(1, 13)) +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+
+```
+
+```{r}
+ggplot(merged_data, aes(x=long, y=lat, fill = region_avg, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Average Number of Birds Struck per Incident by Region') + 
+#  scale_fill_continuous(low = "lightblue", high = "darkblue", name = "Avg # Struck") +
+    scale_fill_viridis(name = "Avg # Struck", limits = c(1, 13)) +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+```
+
+
+```{r}
+ggplot(merged_data, aes(x=long, y=lat, fill = max_struck, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Maximum Number of Birds Struck per Incident by State') + 
+  scale_fill_viridis(name = "Max # Struck") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+```
+Defining the regions of the US
+```{r}
+df.region <- map_data("state")
+df.region$state <- df.region$region
+df.region$region <- region.adder(df.region, state)
+
+df.region <- df.region[!is.na(df.region$region), ]
+
+g <- ggplot(df.region, aes(x = long, y = lat, group = group, fill = region)) +
+geom_polygon(color="black") +
+  guides(na.translate = FALSE) +
+  theme_minimal() +
+  ggtitle("Regions of the United States") +
+  theme(axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(hjust = 0.5))
+g
+```
+
+
+```{r}
+
+
+anova <- aov(NumberStruckActual ~ region, data_us_only)
 summary(anova)
 ```
-There is evidence that the number struck differs by region
-
-
 ```{r}
-tuk <- TukeyHSD(anova)
-tuk
+tukey <- TukeyHSD(anova)
+tukey
 ```
+
+
 
