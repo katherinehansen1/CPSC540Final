@@ -1,0 +1,40 @@
+---
+title: "Final Report"
+author: "Kelsey_Natalie_Katherine_Sarah"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# ~~~~ Introduction ~~~~
+
+# ~~~~ Question 1 ~~~~ 
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+
+## ~~~~ Discussion ~~~~
+
+# ~~~~ Question 2 ~~~~
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+
+## ~~~~ Discussion ~~~~
+
+# ~~~~ Question 3 ~~~~
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+ 
+## ~~~~ Discussion ~~~~
+
+# ~~~~ Question 4 ~~~~
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+
+## ~~~~ Discussion ~~~~
