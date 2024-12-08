@@ -1,18 +1,20 @@
 ---
-title: "Question2_Report_V02"
-format: html
+title: "Question2: Seasonality & Trends"
+format: pdf 
+include-in-header: custom-latex.sty
 editor: visual
 ---
 
-## Natalie Huante - Question #2 Response
+## ***Q2 - Seasonality & Trends:***
 
-***Seasonality & Trends:*** **Does the month of the year affect the count of bird strikes and, if so, which months are riskier? Are bird strikes increasing over the years?**
+**Does the month of the year affect the count of bird strikes and, if so, which months are riskier? Are bird strikes increasing over the years?**
 
 ### Loading the Dataset
 
 Loading in the dataset and printing out the first few rows to verify that it was loaded in correctly.
 
-```{r}
+```{r, include=FALSE}
+
 library(readr)
 
 data <- read_delim("../Bird_strikes.csv", delim = ",")
@@ -25,9 +27,9 @@ print(data)
 
 The first step is to summarize our bird strike data by month and year. Since we are concerned with the number of bird strikes that has been recorded within each month, we should calculate the total strike counts by month and year.
 
-The original data set has a variable, "FlightDate", that contains the date in which the flight took place. We will take this value, extract the month and year. We will then aggregate the data on those values and store the monthly counts in a new table.
+The original data set has a variable, "FlightDate", that contains the date in which the flight took place. We will take this value and extract the month and year. We will then aggregate the data on those values and store the monthly counts in a new table.
 
-```{r}
+```{r, echo = T, results = 'hide', error=FALSE, warning=FALSE, message=FALSE}
 # library import
 library(dplyr)
 
@@ -42,22 +44,25 @@ data$Month <- format(data$FlightDate, "%m")
 strikes_by_month <- data %>% 
   group_by(Year, Month) %>% 
   summarise(Count = n())
-
+```
+```{r}
 # verify the new table was created correctly
 print(strikes_by_month)
 
 ```
 
-
-
-
 ### Regression Model
 
-Now that we have aggregated our data, we want to fit our regression model. We will set the count of bird striker for each month-year as the outcome and the predictors as the month and year in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
+Now that we have aggregated our data, we want to fit our regression model. We will set the count of bird strikes for each month-year as the outcome and the predictors as the month and year in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
 
-We will use a poisson regression model because we are working with count data, so a poisson distribution is most appropriate. For the link function, we include a log function because XXXX
+We will use a poisson regression model because we are working with count data, so a poisson distribution is most appropriate. For the link function, we include a log function.
 
-As a quick note, the count of bird strikes and the year are both continuous variables, while the month is a categorical variable. So, the coefficients of our model will indicate the following: \* The coefficients for *Month* will represent the relative risk of bird strikes compared to the baseline, which will be the month of January, or Month01. This will help us look at seasonality. \* The coefficients for *Year* will represent the expected increase or decrease in bird strikes for each year compared to the baseline, which will be the year 2000. This happens to be the earliest year in our dataset. This will help us look at trends over time and to identify if birds strikes are currently on the decline or the incline. So, to review, our baseline will be January 2000. Each coefficient will represent a relative increase or decrease to this month.
+As a quick note, the count of bird strikes is treated as a continuous variable, while the month and year is a categorical variable. So, the coefficients of our model will indicate the following:
+
+-   The coefficients for *Month* will represent the relative risk of bird strikes compared to the baseline, which will be the month of January, or Month01. This will help us look at seasonality.
+-   The coefficients for *Year* will represent the expected increase or decrease in bird strikes for each year compared to the baseline, which will be the year 2000. This happens to be the earliest year in our dataset. This will help us look at trends over time and to identify if birds strikes are currently on the decline or the incline.
+
+So, to review, our baseline will be January 2000 and each coefficient will represent a relative increase or decrease to this month.
 
 ```{r}
 
@@ -77,60 +82,52 @@ confint(poisson_model)
 
 ```
 
-Given the above output, we can interpret not only the coefficients, but also the confidence intervals of our results in order to assess the certainty of our results.
+Given the above output, we can interpret not only the coefficients, but also the confidence intervals of our results in order to assess the certainty of those results.
 
-**Month Coefficients:** Let's take Month02's (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is e\^-0.1937 or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
+**Month Coefficients:** As an example, let's first take Month02's (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is $e^{-0.1937}$ or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
 
-FIXME: FORMAT INTO A TABLE BRUH 
+| Month                                 | Percentage Relative Rate     | Percentage Difference |
+|------------------------------|------------------------|------------------|
+| **01** - January (Intercept/Baseline) | 1 (Baseline)                 | 0% (Baseline)         |
+| **02** - February                     | $(e^{-0.1937})*100$ = 82.4%  | -17.6%                |
+| **03** - March                        | $(e^{0.27452})*100$ = 131.6% | +31.6%                |
+| **04** - April                        | $(e^{0.6683})*100$ = 195.1%  | +95.1%                |
+| **05** - May                          | $(e^{0.9058})*100$ = 247.4%  | +147.4%               |
+| **06** - June                         | $(e^{0.7965})*100$ = 221.7%  | +121.7%               |
+| **07** - July                         | $(e^{1.2523})*100$ = 349.9%  | +249.9%               |
+| **08** - August                       | $(e^{1.3761})*100$ = 395.9%  | +295.9%               |
+| **09** - September                    | $(e^{1.2938})*100$ = 364.5%  | +264.5%               |
+| **10** - October                      | $(e^{1.1763})*100$ = 324.3%  | +224.3%               |
+| **11** - November                     | $(e^{0.6534})*100$ = 192.2%  | +92.2%                |
+| **12** - December                     | $(e^{0.0839})*100$ = 108.8%  | +8.8%                 |
 
--   Month01 (January)(Intercept/Baseline): 1 (0% difference)
--   Month02 (February): $(e^{-0.1937})*100=82.4\%$ (-17.6% difference)
--   Month03 (March): $(e^{0.27452})*100 = 131.6\%$ (+31.6% difference)
--   Month04 (April): $(e^{0.6683})*100 = 195.1\%$ (+95.1% difference)
--   Month05 (May): $(e^{0.9058})*100 = 247.4\%$ (+147.4% difference)
--   Month06 (June): $(e^{0.7965})*100 = 221.7\%$ (+121.7% difference)
--   Month07 (July): $(e^{1.2523})*100 = 349.9\%$ (+249.9% difference)
--   Month08 (August): $(e^{1.3761})*100 = 395.9\%$ (+295.9% difference)
--   Month09 (September): $(e^{1.2938})*100 = 364.5\%$ (+264.5% difference)
--   Month10 (October): $(e^{1.1763})*100 = 324.3\%$ (+224.3% difference)
--   Month11 (November): $(e^{0.6534})*100 = 192.2\%$ (+95.2% difference)
--   Month12 (December): $(e^{0.0839})*100 = 108.8\%$ (+8.8% difference)
-
-Now, while the coefficients suggest one conclusion, we also calculate the 95% confidence intervals for each month's effect. This is important to consider because if any month's confidence interval contains the value of 0, then that means that the possibility of the month having no effect in comparison to our baseline is within our range of likely effect values. Therefore, we would be more uncertain about that particular month's observed effects being significant and enough to conclude there is an effect. 
+Now, while the coefficients suggest one conclusion, we also calculate the 95% confidence intervals for each month's effect. This is important to consider because if any month's confidence interval contains the value of 0, then that means that the possibility of the month having no effect in comparison to our baseline is within our range of likely effect values. Therefore, we would be more uncertain about that particular month's observed effects being significant and enough to conclude there is an effect.
 
 Below is a graph that will visualize the relative percentages listed compared to the baseline of January, along with the confidence intervals for each month.
 
-```{r}
+```{r, tidy = TRUE, tidy.opts = list(width.cutoff = 60)}
 # library imports 
 library(ggplot2)
 
 # month names
 month_names <- c("February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-
 # month coefficients converted to relative percentage difference
 month_relative_percentage_diff <- c(-17.6, 31.6, 95.1, 147.4, 121.7, 249.9, 295.9, 264.5, 224.3, 92.2, 8.8)
-
 # month lower confidence interval converted to relative percentage difference
 lower_ci_percentage_diff <- c(-24.9, 20.9, 80.2, 129.3, 105.3, 224.8, 269.2, 240.9, 201.4, 77.6, -0.5)  
-
 # month upper confidence interval converted to relative percentage difference
 upper_ci_percentage_diff <- c(-9.4, 43.2, 111.1, 164.7, 135.5, 273.4, 320.3, 289.4, 250.0, 107.5, 18.9)  
-
-
 
 # create data frame for the plot 
 percentage_diff_data <- data.frame(
                           Month = month_names,
                           PercentDiff = month_relative_percentage_diff,
                           LowerCI = lower_ci_percentage_diff,
-                          UpperCI = upper_ci_percentage_diff
-)
+                          UpperCI = upper_ci_percentage_diff)
 
 # make sure the order of months remains intact (feb --> dec)
 percentage_diff_data$Month <- factor(percentage_diff_data$Month, 
                                      levels = c("February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"))
-
- 
 
 # plot 
 ggplot(percentage_diff_data, aes(x = Month, y = PercentDiff)) +
@@ -144,26 +141,24 @@ ggplot(percentage_diff_data, aes(x = Month, y = PercentDiff)) +
     ) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
 ```
 
+**Year Coefficients:** We can take a similar approach with the coefficients for each year in the model's output. Like the month coefficients, the year coefficients also represent the log-relative rate of bird strikes for each year compared to the baseline year, which is the year 2000. So, each coefficient represents the relative increase or decrease in expected bird strikes for that year. We can look at the group of coefficients chronologically to then make conclusions and/or observations about whether there has been a trend of increasing/decreasing rates over time or if there are any years that showed unexpected rates. To make these coefficients easier to interpret, we will apply the same conversion from log-relative rates to percentage relative rates, which will give us the difference in percentages, compared to 2000. Below, we include these calculations.
 
-**Year Coefficients:** We can take a similar approach with the coefficients for each year in the model's output. Like the month coefficients, the year coefficients also represent the log-relative rate of bird strikes for each year compared to the baseline year, which is the year 2000. So, each coefficient represents the relative increase or decrease in expected bird strikes for that year. We can look at the group of coefficients chronologically to then make conclusions and/or observations about whether there has been a trend of increasing/decreasing rate over time or if there are any years that showed unexpected results. To make these coefficients easier to interpret, we will apply the same conversion from log-relative rates to percentage relative rates, which will give us the difference in percentage change, compared to 2000. Below, we include these calculations. 
-
-FIXME: FORMAT INTO A TABLE BRUH 
-
--   2000 (Intercept/Baseline): 1 (0% difference)
--   2001: $(e^{-0.1056})*100 = 90\%$ (-10.0% difference)
--   2002: $(e^{0.2068})*100 = 123\%$ (+23.0% difference)
--   2003: $(e^{0.1372})*100 = 114.7\%$ (+14.7% difference)
--   2004: $(e^{0.2133})*100 = 123.8\%$ (+23.8% difference)
--   2005: $(e^{0.3042})*100 = 135.5\%$ (+35.5% difference)
--   2006: $(e^{0.4570})*100 = 158.0\%$ (+58.0% difference)
--   2007: $(e^{0.5207})*100 = 168.3\%$ (+68.3% difference)
--   2008: $(e^{0.5019})*100 = 165.2\%$ (+65.2% difference)
--   2009: $(e^{0.8651})*100 = 237.5\%$ (+137.5% difference)
--   2010: $(e^{0.8255})*100 = 228.3\%$ (+128.3% difference)4
--   2011: $(e^{0.7699})*100 = 215.9\%$ (+115.9% difference)4
+| Year                          | Percentage Relative Rate     | Percentage Difference |
+|--------------------------|---------------------------|-------------------|
+| **2000** - Intercept/Baseline | 1 (Baseline)                 | 0% (Baseline)         |
+| **2001**                      | $(e^{-0.1056})*100 = 90\%$   | -10.0%                |
+| **2002**                      | $(e^{0.2068})*100 = 123\%$   | +23.0%                |
+| **2003**                      | $(e^{0.1372})*100 = 114.7\%$ | +14.7%                |
+| **2004**                      | $(e^{0.2133})*100 = 123.8\%$ | +23.8%                |
+| **2005**                      | $(e^{0.3042})*100 = 135.5\%$ | +35.5%                |
+| **2006**                      | $(e^{0.4570})*100 = 158.0\%$ | +58.0%                |
+| **2007**                      | $(e^{0.5207})*100 = 168.3\%$ | +68.3%                |
+| **2008**                      | $(e^{0.5019})*100 = 165.2\%$ | +65.2%                |
+| **2009**                      | $(e^{0.8651})*100 = 237.5\%$ | +137.5%               |
+| **2010**                      | $(e^{0.8255})*100 = 228.3\%$ | +128.3%               |
+| **2011**                      | $(e^{0.7699})*100 = 215.9\%$ | +115.9%               |
 
 Below is a graph that will visualize the relative percentages listed compared to the baseline of 2000, along with the confidence intervals for each year.
 
@@ -176,13 +171,10 @@ year_names <- c("2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", 
 
 # month coefficients converted to relative percentage difference
 year_coeffs = c(-0.1056, 0.2068, 0.1372, 0.2133, 0.3042, 0.4570, 0.5207, 0.5019, 0.8651, 0.8255, 0.7699) 
-
 # month lower confidence interval converted to relative percentage difference
 lower_ci_coeffs <- c(-0.1827, 0.1355, 0.0647, 0.1421, 0.2344, 0.3894, 0.4540, 0.4349, 0.8022, 0.7622, 0.7060)
-
 # month upper confidence interval converted to relative percentage difference
 upper_ci_coeffs <- c(-0.0286, 0.2782, 0.2098, 0.2847, 0.3742, 0.5250, 0.5879, 0.5692, 0.9286, 0.8894, 0.8342)
-
 
 # convert the coefficients 
 year_rate_ratios <- exp(year_coeffs)
@@ -190,20 +182,16 @@ percentage_changes <- (year_rate_ratios - 1) * 100
 lower_percentage <- (exp(lower_ci_coeffs) - 1) * 100
 upper_percentage <- (exp(upper_ci_coeffs) - 1) * 100
 
-
 # create data frame for the plot 
 year_percentage_diff_data <- data.frame(
                           Year = year_names,
                           PercentDiff = percentage_changes,
                           LowerCI = lower_percentage,
-                          UpperCI = upper_percentage
-)
+                          UpperCI = upper_percentage)
 
 # make sure the order of months remains intact (feb --> dec)
 year_percentage_diff_data$Year <- factor(year_percentage_diff_data$Year, 
                                      levels = c("2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011"))
-
- 
 
 # plot 
 ggplot(year_percentage_diff_data, aes(x = Year, y = PercentDiff)) +
@@ -217,21 +205,23 @@ ggplot(year_percentage_diff_data, aes(x = Year, y = PercentDiff)) +
     ) +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
 ```
 
-### Results - FIXME
+### Results
 
 **Question 1:** Does the month of the year affect the count of bird strikes and, if so, which months are riskier?
 
-As we can see in the output of our 
+For each month (with the exclusion of December), we can see that their confidence interval does not contain the percentage difference of 0%, which would have indicated that no difference between that month and the baseline (January) would be plausible. However, since this is not the case, we can conclude that each month does have an effect on what the expected rate is. Each month (with the exclusion of February) has a varying level of increase in the relative rate, indicating there is some seasonality.
+
+So, we can conclude that, from the Poisson regression results, that the month of the year does affect the relative rate of bird strikes we expect to see. Summer and early fall months (July, August, September, October) have the highest relative increases compared to January at +249.9%, +295.9%, +264.5% and +224.3% respectively, so they could be considered the "riskiest" months for bird strikes. Meanwhile, winter and early spring months (December, February, March) had the lowest relative rates at +8.8%, -17.6%, and +31.6%.
 
 **Question 2:** Are bird strikes increasing over the years?
 
+Relative to the year 2000, we can see that bird strikes have overall increased over time, with some noise and fluctuations in between. For example, from the year 2008 to 2009 we see a rather large jump from a percentage difference of +65.2% to +137.5%, but outside of this noise, we can observe a steady increase since 2000, with the rates more than doubling from the baseline (2000) to 2011.
 
+Again, we also include the 95% confidence intervals for these results as well and can observe that, for each year, neither CI includes the percentage difference of 0%. This means that for each year, the difference in the percentage relative rates does not include the possibility of that difference to be 0, or there being no difference. So, we can more confidently conclude that there is a difference in those years, and combined with the coefficients, that that difference is steadily increasing over time.
 
-
-```{r}
+```{r, warning=FALSE}
 library(ggplot2)
 
 year_comparison_data <- data.frame(
@@ -239,8 +229,7 @@ year_comparison_data <- data.frame(
       Month = rep(1:12, 3),
       Count = c(45, 57, 80, 103, 118, 117, 158, 189, 185, 176, 103, 36, # 2000
                 66, 58, 101, 117, 157, 140, 224, 263, 271, 243, 126, 87, # 2005
-                120, 81, 142, 227, 268, 250, 354, 383, 429, 369, 219, 110) # 2011
-)
+                120, 81, 142, 227, 268, 250, 354, 383, 429, 369, 219, 110)) # 2011)
       
 ggplot(year_comparison_data, 
       aes(x = Month, y = Count, group = Year, color = as.factor(Year))) +
@@ -259,23 +248,16 @@ ggplot(year_comparison_data,
         text = element_text(size = 12),
         axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top")
-
-
 ```
 
-I have included a graph above that provides a visual representation of the count data from the original dataset. This graph aligns with the results of our model. We can see that each of the three years have a similar seasonal pattern where summer and early fall months see an increase in total bird strikes where as winter and early spring months see a decrease in total bird strikes. 
+To further demonstrate our conclusions, we have included a graph above that provides a visual representation of the count data from the original dataset, but only includes the year 2000, 2005, and 2011. This graph aligns with the results of our model and showcases both the seasonality and overall trend of bird strikes through the years. We can see that each of the three years have a similar seasonal pattern where summer and early fall months see an increase in total bird strikes and we see this in the graph where all three lines rise from months June to about October. Likewise, we can see a fall for all three lines in the winter and early spring months, representing a decrease in bird strikes, which also aligns with the conclusions drawn from the model.
 
-### Discussion - FIXME
+### Discussion
 
-- In the future
-  - whether it would make sense to control for weather, # of flights, etc. or if that is implied by the seasonality of things 
-  - has the relative rates of months (the seasonality) changes over time
+Having seen the results and having drawn the conclusions from them, there are some factors worth discussing in terms of why the seasonality and upwards trend are present and what could be causing them.
 
-### References - FINISH 
+For the monthly effects and the observed seasonality of increased strikes during summer/fall months and decreased strikes in the winter/spring, this could be due to seasonal migration patterns where birds tend to be more active in the skies during their typical migration season. This also could be due to the number of flights occurring in each season. Perhaps more people travel during the summer, which could lead to more flights and more bird strikes.
 
--   Graphing Palettes
-    -   https://www.r-bloggers.com/2013/09/how-to-expand-color-palette-with-ggplot-and-rcolorbrewer/
-    -   https://stackoverflow.com/questions/9563711/r-color-palettes-for-many-data-classes
--   R Markdown Syntax
-    -   https://rpruim.github.io/s341/S19/from-class/MathinRmd.html
-    -   https://rmarkdown.rstudio.com/authoring_basics.html
+For the yearly effects and the observed upwards trend of bird strikes per year, this could be to several environmental and cultural shifts. Increased air traffic throughout the years from 2000 to 2011 has surely increased, so there would be many more flights in more recent years compared to a decade prior. Therefore, with more flights, there is more of an opportunity for a bird strike to occur. Another factor could be the method and frequency in which bird strikes are reported accurately. So, there could be more accurate or accessible ways to track bird strikes with new policies or technology, leading to recent years appearing as if they have "more" bird strikes compared to previous years.
+
+If we were to elaborate on and continue exploring the seasonality and trends of this data, some considerations and questions we would observe are stated below: - Whether it would make sense to control for weather, \# of flights, etc. as aggregated co-variates in some way or if that is implied by the seasonality of months. In one way, this would complicate the model given that we would have to aggregate the co-variate data to be able to be applied to the aggregated counts. For some variables, this could result in losing the variability and therefore losing their meaningfulness at the monthly-level. For those that don't, it is worth exploring whether it really matters to include them or not. For example, does knowing the month of the year in which a flight takes place not come with certain assumptions of what type of weather is expected, if rain is plausible, etc. regardless of what region you are in. - Has the relative rates of months (the seasonality) changed over the years? - Do some months see more larger bird strikes than others? The original dataset has a variable that represents the number of birds involved in the bird strike recorded. So, one bird strike might represent 100 birds colliding with a plane where another might represent only 1 bird colliding with a plane. In our results, we treated all bird strikes equally regardless of how many birds were involved in the incident, so it would be interesting to see whether certain types of bird strikes are more probable in some months versus others. - The data that we use only contains information about flights where bird strikes did occur and were reported, but nothing about flights where bird strikes did not occur or they weren't reported. So, if we happened to have that data available, we would ask the following: What percentage of strikes are actually being reported and has that percentage changed throughout the year? What is the direct effect of the month and year in which a flight takes place on the probablility of a bird strike occurring?
