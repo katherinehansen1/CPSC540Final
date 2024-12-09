@@ -5,9 +5,14 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
+# ~~~~ Question 4 ~~~~
 # Based on the flight phase ("Climb", "Landing Roll", "Approach", "Take-off run"), which phase is correlated with the largest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
 
 # ~~~~~ ANALYSIS ~~~~~
+
+To answer this question, I plan to utilize a bayesian Generalized Linear Model (GLM). I plan to use this to answer the correlation and causal relationship portion of the questions. To begin, I will utilize basic EDA approaches by plotting summary statistics about the data I plan to analyze. By grabbing the average bird strikes for each flight phase, I plan to look at the differences between the averages in each flight phase to gain insights on the data to set my priors for the GLM. I originally plan to utilize normal informative priors with a poisson family with a log link function to account for the non-linear relationship with the data. Once the EDA is complete, I plan to build multiple GLM models with different familys and priors to test the different effects on the model, while utilizing prior predictive checks and looking at the ESS and posterior intervals and distributions. 
+
+I chose this analysis because I am able to use a GLM to answer the correlation question as well as the causal relationship inference portion. I plan to be able to answer both questions with one model as we can utilize all the model summary and information drawn from the the outputs to answer each portion of the questions. I could have taken a frequentist approach to answer the questions, however a bayesian approach will allow me to deeper assess and tune the model to answer the question as best as possible. I plan to use variables that I believe are correlated with bird strikes in the sense that they are connected to the flight, flight information, and geographical information. To use the DAG in this sense to be able to control for confounders will help make my model and analysis stronger. 
 
 ```{r setup, include=FALSE, echo = FALSE}
 # Load libraries
