@@ -1,10 +1,10 @@
 # CPSC540Final
 
 # Group Members (Name, email, student ID)
+* Sarah Fieck
+* Katherine Hansen, kahansen@chapman.edu, 2326665
 * Kelsey Hawkins, kehawkins@chapman.edu, 2364453
-*
-*
-*
+* Natalie Huante, huante@chapman.edu, 2374481
 
 # Resources Used
 * ChatGPT for debugging and general help
