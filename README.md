@@ -16,4 +16,10 @@
 * https://www.studentsofhistory.com/regions-of-united-states
 * https://r.geocompx.org/adv-map
 * https://jtr13.github.io/cc19/different-ways-of-plotting-u-s-map-in-r.html
+* https://www.r-bloggers.com/2013/09/how-to-expand-color-palette-with-ggplot-and-rcolorbrewer/
+* https://stackoverflow.com/questions/9563711/r-color-palettes-for-many-data-classes
+* https://stackoverflow.com/questions/26210656/in-r-markdown-in-rstudio-how-can-i-prevent-the-source-code-from-running-off-a-p
+* https://rmarkdown.rstudio.com/authoring_basics.html
+* https://forum.posit.co/t/hiding-selected-lines-in-code-chunk/119635
+* https://quarto.org/docs/authoring/tables.html
 * 
