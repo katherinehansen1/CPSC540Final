@@ -1,6 +1,7 @@
 ---
 title: Q3 - Quantity of Birds Struck
 format: pdf 
+include-in-header: custom-latex.sty
 editor: visual
 ---
 
@@ -133,7 +134,7 @@ g
 
 To answer the first part of the question, a linear regression model was run with the features AircraftType, Altitude, Engines, FlightPhase, ConditionsPrecipitation, ConditionsSky, PilotWarned, and the newly feature engineered Region to predict NumberStruckActual. Then, the magnitude and sign of the coefficients was studied, along with the significance level, to determine which predictors have the largest impact.
 
-Then, to answer the second part of the question, a one-way ANOVA was be run to see if the mean of birds hit per strike, NumberStruckActual, was the same across all regions. The null hypothesis hypothesized that the mean of the number of birds stuck per incident is the same between all regions. The alternative hypothesis was that the mean of the number of birds struck per incident is not the same between all regions. The significance level, alpha, will be set to 0.05. The p-values returned from the ANOVA model were studied, and if they were less than 0.05, the null hypothesis was rejected and evidence would've been found that the means between the regions are not all the same. If differences were found, Tukey’s HSD test was used to determine which regions have differences.
+Then, to answer the second part of the question, a one-way ANOVA was run to see if the mean of birds hit per strike, NumberStruckActual, was the same across all regions. The null hypothesis hypothesized that the mean of the number of birds stuck per incident is the same between all regions. The alternative hypothesis was that the mean of the number of birds struck per incident is not the same between all regions. The significance level, alpha, will be set to 0.05. The p-values returned from the ANOVA model were studied, and if they were less than 0.05, the null hypothesis was rejected and evidence would've been found that the means between the regions are not all the same. If differences were found, Tukey’s HSD test was used to determine which regions have differences.
 
 This will not be a causal estimate, as there are many other things not available in the dataset that may make the number of birds struck different including time of day, and the number of birds present and available to strike. A map visualization was used to show the average number of bird strikes per airport via a map ggplot.
 
@@ -149,7 +150,7 @@ summary(lr)
 The coefficients from the linear regression model were as follows:
 
 | Coefficient                            | Estimate   | p-value  | Significance Level |
-|---------------------------------|-------------|-------------|-------------|
+|-----------------------------|---------------|---------------|---------------|
 | (Intercept)                            | 1.583e+00  | 0.049869 | \*                 |
 | Altitude                               | -2.511e-04 | 2.29e-05 | \*\*\*             |
 | Engines                                | 5.780e-01  | 0.013584 | \*                 |
@@ -206,7 +207,7 @@ anova <- aov(NumberStruckActual ~ region, data_us_only)
 summary(anova)
 ```
 
-These results show that there *is* evidence that the difference between the means of birds struck across regions is not different, because the p-value is less than 0.05. The null hypothesis was rejected in favor of the alternative hypothesis, that there *is* a difference between the mean number of birds struck per incident by region. Because of this result, Tukey's HSD was run to determine which regions had evidence of a difference in means.
+These results show that there *is* evidence that the difference between the means of birds struck across regions is not zero, because the p-value is less than 0.05. The null hypothesis was rejected in favor of the alternative hypothesis, that there *is* a difference between the mean number of birds struck per incident by region. Because of this result, Tukey's HSD was run to determine which regions had evidence of a difference in means.
 
 ```{r, echo = F}
 tukey <- TukeyHSD(anova)
@@ -217,9 +218,9 @@ When a 95% CI contains 0, it is possible that the mean difference is 0, so the r
 
 -   Northeast & Midwest
 
-    -    Difference: 0.99 Birds
+    -   Difference: 0.99 Birds
 
-    -    95% CI: \[0.28, 1.69\]
+    -   95% CI: \[0.28, 1.69\]
 
 -   Southwest & Northeast
 

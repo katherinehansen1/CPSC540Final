@@ -53,7 +53,7 @@ print(strikes_by_month)
 
 ### Regression Model
 
-Now that we have aggregated our data, we want to fit our regression model. We will set the count of bird strikes for each month-year as the outcome and the predictors as the month and year in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
+Now that we have aggregated our data, we want to fit our regression model. The outcome will be the count of bird strikes by month and year and the predictors will be the month and year in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
 
 We will use a poisson regression model because we are working with count data, so a poisson distribution is most appropriate. For the link function, we include a log function.
 
@@ -135,7 +135,7 @@ ggplot(percentage_diff_data, aes(x = Month, y = PercentDiff)) +
     geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2, color = "black") +
     geom_hline(yintercept = 0, linetype = "dashed", color = "red") + # no relative difference
     labs(
-      title = "Percentage Change in Bird Strike Rates by Month (Relative to January)",
+      title = "% Change in Bird Strike Rates by Month (Relative to January)",
       x = "Month",
       y = "Percentage Change (%)"
     ) +
@@ -199,7 +199,7 @@ ggplot(year_percentage_diff_data, aes(x = Year, y = PercentDiff)) +
     geom_errorbar(aes(ymin = LowerCI, ymax = UpperCI), width = 0.2, color = "black") +
     geom_hline(yintercept = 0, linetype = "dashed", color = "red") + # no relative difference
     labs(
-      title = "Percentage Change in Bird Strike Rates by Year (Relative to 2000)",
+      title = "% Change in Bird Strike Rates by Year (Relative to 2000)",
       x = "Year",
       y = "Percentage Change (%)"
     ) +
