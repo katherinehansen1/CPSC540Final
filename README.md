@@ -15,4 +15,5 @@
 * https://skybrary.aero/descend-approach-and-landing
 * https://www.studentsofhistory.com/regions-of-united-states
 * https://r.geocompx.org/adv-map
+* https://jtr13.github.io/cc19/different-ways-of-plotting-u-s-map-in-r.html
 * 
