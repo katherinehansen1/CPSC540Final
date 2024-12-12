@@ -57,9 +57,9 @@ ggplot(bird_strikes_summary, aes(x = FlightPhase, y = MeanStrikes, fill = Flight
   labs(
     title = "Average Bird Strikes by Flight Phase",
     x = "Flight Phase",
-    y = "Average Number of Bird Strikes"
-  ) +
-  theme_minimal()
+    y = "Average Number of Bird Strikes") + 
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 
 
@@ -102,8 +102,6 @@ ggdag(dag, node_size = 18, layout = "circle", stylized = TRUE, use_labels = "lab
 print(adjustmentSets(dag, effect = "direct"))
 ```
 
-Other variables included in the DAG that do not have a causal relationship with
-
 In this DAG, we use four variables to test for a correlation between the number of birds struck. The variables included are Effect, ConditionsSky, FlightPhase, OriginState, and Damage. FlightPhase is the exposure variable and the other variables are confounders. We also take the previously made bar plot to see which flight phase had the most average bird strikes to gain information into the DAG. To gain insight into the relationships between variables, we use a linear regression model due to the variables being categorical. An ANOVA test could have been done, but I wanted to quantify the variables utilizing a 0.05 alpha to test for the P_Values being under the threshold. If the variable is under the threshold, we can conclude that there is a statistically significant relationship between the variable and NumberStruckActal. This information will be taken into the Bayesian parameter estimation model to estimate a causal relationship between flightPhase and numberStruckActual including the confounders found here.
 
 ```{r DAG finding, include = FALSE, echo = FALSE}
@@ -135,9 +133,6 @@ anova_result <- aov(Altitude ~ FlightPhase, data = data) # Example for mixed var
 summary(anova_result)
 
 
-```
-
-```{}
 ```
 
 dagitty(" dag { FlightPhase -\> NumberStruckActual ConditionsSky -\> NumberStruckActual Effect -\> NumberStruckActual Damage -\> NumberStruckActual OriginState -\> FlightPhase OriginState -\> ConditionsSky FlightPhase -\> Altitude FlightPhase -\> Damage Effect -\> ConditionsSky Origin -\> ConditionsSky Damage -\> ConditionsSky Effect -\> Damage }")
