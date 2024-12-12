@@ -150,7 +150,7 @@ summary(lr)
 The coefficients from the linear regression model were as follows:
 
 | Coefficient                            | Estimate   | p-value  | Significance Level |
-|-----------------------------|---------------|---------------|---------------|
+|----------------------------------------|------------|----------|--------------------|
 | (Intercept)                            | 1.583e+00  | 0.049869 | \*                 |
 | Altitude                               | -2.511e-04 | 2.29e-05 | \*\*\*             |
 | Engines                                | 5.780e-01  | 0.013584 | \*                 |
