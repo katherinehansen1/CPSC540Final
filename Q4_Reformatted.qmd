@@ -61,11 +61,46 @@ ggplot(bird_strikes_summary, aes(x = FlightPhase, y = MeanStrikes, fill = Flight
   ) +
   theme_minimal()
 
+
+
+
 ```
 
 ## DAG Creation & Quantification
 
-In this DAG, we visualize and explore the relationships between the variables Effect, ConditionsSky, FlightPhase, OriginState, and Damage. FlightPhase is the exposure variable and the other variables are all confounders.
+In this DAG, we visualize and explore the relationships between the variables `NumberStruckActual`, `FlightPhase`, `Altitude`, `ConditionsSky`, `Effect`, `Damage`, and `Origin`. Ultimately, we are aiming to quantify the direct effect of `FlightPhase` on `NumberStruckActual`, making `FlightPhase` our expose variable and `NumberStruckActual` our outcome variable. There exists a chain from `FlightPhase` -\> `Altitude` -\> `NumberStruckActual`, making `Altitude` a mediator between `FlightPhase` and `NumberStruckActual`. Because we are interested in the *direct* effect, we must control for `Altitude` in our model. To do so, we will include `Altitude` as an additional predictor in our GLM. Our GLM will be a simple linear regression using `FlightPhase` and `Altitude` to predict `NumberStruckActual`, as `NumberStruckActual` is a continuous variable.
+
+```{r DAG Output, include = TRUE, echo = FALSE}
+# Construct DAG
+
+dag <- ggdag::dagify(
+    NumberStruckActual ~ Altitude + FlightPhase + Origin,
+    ConditionsSky ~ Origin, 
+    Altitude ~ FlightPhase, 
+    Damage ~ NumberStruckActual, 
+    Effect ~ Damage, 
+    exposure = "FlightPhase", 
+    outcome = "NumberStruckActual", 
+    labels = c(FlightPhase = "FlightPhase", 
+           ConditionsSky = "ConditionsSky", 
+           Effect = "Effect", 
+           Damage = "Damage", 
+           OriginState = "OriginState", 
+           NumberStruckActual = "NumberStruckActual", 
+           Altitude = "Altitude", 
+           Origin = "Origin")
+)
+
+
+# Plot the DAG
+ggdag(dag, node_size = 18, layout = "circle", stylized = TRUE, use_labels = "label", text = "False", 
+      node = "True", label_size = 2.5) +
+  theme_dag()
+  labs(title = "DAG: Confounding Variables for Bird Strikes")
+
+
+print(adjustmentSets(dag, effect = "direct"))
+```
 
 Other variables included in the DAG that do not have a causal relationship with
 
@@ -102,35 +137,18 @@ summary(anova_result)
 
 ```
 
-```{r DAG Output, include = TRUE, echo = FALSE}
-# Construct DAG
+```{}
+```
 
-dag <- dagitty("
-dag {
-  FlightPhase -> NumberStruckActual
-  ConditionsSky -> NumberStruckActual
-  Effect -> NumberStruckActual
-  Damage -> NumberStruckActual
-  OriginState -> FlightPhase
-  OriginState -> ConditionsSky
-  FlightPhase -> Altitude
-  FlightPhase -> Damage
-  Effect -> ConditionsSky
-  Origin -> ConditionsSky
-  Damage -> ConditionsSky
-  Effect -> Damage
-}")
+dagitty(" dag { FlightPhase -\> NumberStruckActual ConditionsSky -\> NumberStruckActual Effect -\> NumberStruckActual Damage -\> NumberStruckActual OriginState -\> FlightPhase OriginState -\> ConditionsSky FlightPhase -\> Altitude FlightPhase -\> Damage Effect -\> ConditionsSky Origin -\> ConditionsSky Damage -\> ConditionsSky Effect -\> Damage }")
 
-# Plot the DAG
-ggdag(dag) +
-  theme_minimal() +
-  labs(title = "DAG: Confounding Variables for Bird Strikes")
-
+```{r}
+levels(data$Effect)
 ```
 
 # Bayesian Parameter Estimation + Causal Inference
 
-For the bayesian parameter estimation portion, we test multiple different priors to see which ones are the best fit to the dataset. After running the models, the one I use is as follows. The priors that were chosen are weakly informative priors of a normal distribution, with a mean of 0 and variation of 2.5. The family is a negative binomial regression model with a log link function. The response variable is NumberStruckActual that is count data showing the number of bird strikes. The predictors are flight phase, conditionsSky, Effect, Damage, and OriginState. The link function is a log function as we want a log-linear function of the predictors to ensure values are positive. The predictor coefficients, or the prior, is a normal prior for the coefficients, assuming that most predictors will have little or no influence on the outcome but with moderately large variation of 2.5. The prior intercept is a normal prior with a mean of 0 and variation of 5 so the model can have a larger baseline counts of bird strikes which shows more uncertainty. The model has 4 chains with 8000 iterations so that we can have a larger posterior sample size and having more robust posterior estimaties. The negative binomial family handles overdispersion where variance exceeds mean and response variable as bird strikes have very high variability across the dataset.
+For the bayesian parameter estimation portion, we test multiple different priors to see which ones are the best fit to the dataset. After running the models, the one I use is as follows: The priors that were chosen are weakly informative priors of a normal distribution, with a mean of 0 and variation of 2.5. The family is a negative binomial regression model with a log link function. The response variable is NumberStruckActual that is count data showing the number of bird strikes. The predictors are flight phase, conditionsSky, Effect, Damage, and OriginState. The link function is a log function as we want a log-linear function of the predictors to ensure values are positive. The predictor coefficients, or the prior, is a normal prior for the coefficients, assuming that most predictors will have little or no influence on the outcome but with moderately large variation of 2.5. The prior intercept is a normal prior with a mean of 0 and variation of 5 so the model can have a larger baseline counts of bird strikes which shows more uncertainty. The model has 4 chains with 8000 iterations so that we can have a larger posterior sample size and having more robust posterior estimaties. The negative binomial family handles overdispersion where variance exceeds mean and response variable as bird strikes have very high variability across the dataset.
 
 ```{r bayesianParamEstimation, echo = FALSE, include = FALSE}
 # Fitting a bunch of different ones with different priors 
