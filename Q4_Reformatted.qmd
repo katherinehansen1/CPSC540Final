@@ -7,7 +7,7 @@ editor: visual
 
 ## ***Q4 - Flight Phase & Bird Strikes:***
 
-### Do all flight phases have the same average number of birds struck per incident? If not, which flight phase is correlated with the highest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
+### Do all flight phases have the same average number of birds struck per incident? If not, which flight phase is correlated with the highest average number of birds struck per incident? Is there a casual relationship between flight phase and bird strikes?
 
 ### 
 
@@ -210,14 +210,40 @@ pp_check(bayesian_model_nb, plotfun = "dens_overlay") +
 
 ### Results
 
-Overall, the key findings were as follows. The baseline for `FlightPhase` was the Approach phase. Climb has a posterior mean of near 0 which means no evidence of this phase being associated with more birds struck per incident than the baseline was found. The Landing Roll has a posterior mean of 0.2 which means there is a significant positive association with `NumberStruckActual`. The Take-off run has a posterior mean of 0.2, showing there is also a significant increase in `NumberStruckActual` during this phase. Descent has a posterior mean of -0.3 which means there are predicted to be fewer birds struck per incident relative to the baseline of Approach.
+Overall, the key findings were as follows. The baseline for `FlightPhase` was the Approach phase.
 
-When we analyze the posterior predictive check graph, it seems as though the data is extremely right skewed. This is due to the fact that most bird strike incidents involve very few birds. The prior family of a negative binomial should help with the overdispersion, but it seems like the plot is very skewed. There seems to have a long tail due to extreme values occurring in the dataset. However, the peak at 0 means that the model captures the proportion of flights with zero or very few bird strikes. Even though the graph is not great, it does show that the model is well fit to the data that is present, even though it is skewed.
+Climb has a posterior mean of 0.3, with the 95% Credible Interval, or CI, spanning \[0.25, 0.34\].
 
-Based on the prior distributions of landing roll and take off run, these are the flight phases most strongly associated with higher bird strike counts. These findings show that these phases are greater risks for more birds being struck. The confounding variable of `Altitude` should also be taken into account when making data based decisions.
+Descent has a posterior mean of 0.2, with the 95% CI, spanning \[0.18, 0.34\].
 
-To answer the causal portion of the question, the model will be utilized to assess causal effects. Climb and take-off run have positive coefficients which indicate a higher number of birds struck relative to the baseline. The credible intervals do not cross zero which suggest a strong evidence of a causal relationship. Landing roll is still positive but has a smaller effect than the other two phases. Parked and Taxi have negative coefficients which means there are fewer birds struck compared to baseline, which mean these phases are less likely to contribute to bird strikes causally, since their credible intervals cross zero. From the DAG, we control for the `Altitude`. When we add this into our model, we control for them to isolate the causal impact of the flight phase on number of bird strikes. Since the narrow credible intervals of climb (0.1 - 0.2) and Take-off run (0.14 - 0.22), these are key contributers to the number of birds struck. The Bayesian model not only answered the correlation portion, but also led us to a causal inference conclusion, due to controlling for confounding variables after viewing the DAG.
+Landing Roll has a posterior mean of 0.1, with the 95% CI spanning \[0.12, 0.34\].
+
+Parked has a posterior mean of -0.7, with the 95% CI spanning \[-1.49, 0.21\].
+
+Take-off run has a posterior mean of 0.2, with the 95% CI spanning \[0.13, 0.21\].
+
+Taxi has a posterior mean of 0.0, with the 95% CI spanning \[-0.25, 0.30\].
+
+Climb, Descent, Landing Roll, and Take-off run have CIs that do not overlap with 0, meaning that the model believes these phases are significant. The posterior means, or coefficients, represent the predicted changes in the number of birds struck per incident compared to the baseline level of Approach. Because we used a log link function, we must transform these coefficients in order to interpret them.
+
+In the Climb phase, $e^{0.3} \approx 1.35$ , or, the model expects to see 35% more birds struck per incident than in the Approach phase.
+
+In the Descent phase, $e^{0.2} \approx 1.22$ , or, the model expects to see 22% more birds struck per incident than in the Approach phase.
+
+For the Landing Roll phase, $e^{0.1} \approx 1.11$ , or, the model expects to see 11% more birds struck per incident than in the Approach phase.
+
+For the Take-off run phase, $e^{-0.7} \approx 0.5$ , or, the model expects to see 50% fewer birds struck per incident than in the Approach phase.
+
+The CI for Parked is wide, indicating a lot of uncertainty in the prediction there. Because the CI for Taxi overlaps with 0, the model believes that it is possible there is no difference between the number of birds struck in Approach and Taxi.
+
+Our reported $\hat{r}$ is 1, showing strong evidence that our chains have converged.
+
+The reported mean for reciprocal dispersion is 0.9, with a CI of \[0.93, 0.96\], indicating that our data is slightly overdispersed, and using negative binomial was an appropriate choice.
+
+The original research question was 'which flight phase is correlated with the highest average number of bird strikes?' and our model predicts that being in the Climb phase compared to Approach is associated with the highest number of birds struck per incident.
+
+Assuming our DAG is correct, because we controled for the confounding variable `Altitude`, this model reports a causal effect.
 
 ### Discussion
 
-The findings that were discussed in the results section covered the numerical analysis results, but there are certain limitations to this analysis. Not only can we not actually control for many variables in flights, we have to accept that there is a lot of uncertainty in this analysis. We can quantify our causal analysis and correlations to our numerical analysis with uncertainty factored in, but in reality we can't control for all of those counfounders. The outputs, however, were in line with what I had previously assumed that has the most bird strikes. By confirming it with posterior predictive checks, we can ensure that the priors were fit for the model.
+The findings that were discussed in the results section covered the numerical analysis results, but there are certain limitations to this analysis. Not only can we not actually control for many variables in flights, we have to accept that there is a lot of uncertainty in this analysis. We can quantify our causal analysis and correlations to our numerical analysis with uncertainty factored in, but in reality, it is likely that we can't control for all counfounders. The outputs, however, were in line with what I had previously assumed that has the most bird strikes. By confirming it with posterior predictive checks, we ensured that the priors were fit for the model. From these findings, pilots should be aware that they are at risk of hitting more birds in a strike in the Climb phase.
