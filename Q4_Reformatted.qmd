@@ -1,6 +1,6 @@
 ---
 title: "Question 4: Effects of Flight Phase"
-format: html 
+format: pdf 
 #include-in-header: custom-latex.sty
 editor: visual
 ---
@@ -127,6 +127,11 @@ After running the models, the one I use is as follows: The priors that were chos
 
 For the sake of the runtime it takes to render this PDF, only the one selected model is left uncommented.
 
+```{r}
+#install.packages("rstanarm")
+library(rstanarm)
+```
+
 ```{r bayesianParamEstimation, echo = FALSE, include = FALSE}
 # Fitting a bunch of different glms with different prior intercepts
 
@@ -151,7 +156,16 @@ For the sake of the runtime it takes to render this PDF, only the one selected m
 #  chains = 4, iter = 8000 
 #)
 #summary(bayesian_model_norm)
+```
 
+```{r bayesianAltitudeCleanup, echo=FALSE, include=FALSE}
+# standardizes altitude 
+data$Altitude <- scale(data$Altitude)
+#summary(data)
+
+```
+
+```{r}
 # Trying model with: Normal and Neg Binomial
 # USING THIS ONE
 bayesian_model_nb <- stan_glm(
@@ -160,7 +174,7 @@ bayesian_model_nb <- stan_glm(
   family = neg_binomial_2(link = "log"),
   prior = normal(0, 2.5),
   prior_intercept = normal(0, 5),
-  chains = 4, iter = 8000
+  chains = 4, iter = 8000, warmup = 500
 )
 summary(bayesian_model_nb)
 
