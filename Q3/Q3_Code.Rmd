@@ -1,0 +1,205 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, warning=F}
+set.seed(2)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(RColorBrewer)
+library(maps)
+library(ggplot2)
+library(usmap)
+```
+
+Load Data
+```{r, warning=F}
+data <- read.csv("../Bird_strikes.csv")
+data$AirportName <- factor(data$AirportName)
+data$OriginState <- factor(data$OriginState)
+data$AirportRegion <- rep("", times = nrow(data))
+data$AircraftType <- factor(data$AircraftType)
+data$FlightPhase <- factor(data$FlightPhase)
+data$Engines <- as.numeric(data$Engines)
+data$ConditionsPrecipitation <- factor(data$ConditionsPrecipitation)
+data$ConditionsSky <- factor(data$ConditionsSky)
+data$PilotWarned <- factor(data$PilotWarned)
+```
+A function to add a region column to a DF
+```{r, warning=F}
+region.adder <- function(df, state){
+  northeast <- c("maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut", "new york", "new jersey", "pennsylvania", "delaware", "maryland")
+  west <- c("washington", "california", "oregon", "idaho", "montana", "wyoming", "utah", "nevada", "colorado")
+  southwest <- c("arizona", "new mexico", "texas", "oklahoma")
+  southeast <- c("west virginia", "virginia", "kentucky", "north carolina", "south carolina", "arkansas", "louisiana", "mississippi", "alabama", "georgia", "florida", "tennessee")
+  midwest <- c("north dakota", "south dakota", "minnesota", "wisconsin", "michigan", "nebraska", "kansas", "iowa", "missouri", "illinois", "indiana", "ohio")
+  alaska <- c("alaska")
+  hawaii <- c("hawaii")
+  region <- rep(NA, nrow(df))
+  
+  for (i in 1:nrow(df)){
+    if (df[i, state] %in% northeast) region[i] = "northeast"
+    else if (df[i, state] %in% west) region[i] = "west"
+    else if (df[i, state] %in% southwest) region[i] = "southwest"
+    else if (df[i, state] %in% southeast) region[i] = "southeast"
+    else if (df[i, state] %in% midwest) region[i] = "midwest"
+    else if (df[i, state] %in% alaska) region[i] = "alaska"
+    else if (df[i, state] %in% hawaii) region[i] = "hawaii"
+    else region[i] = NA
+    }
+  return (region)
+}
+
+```
+
+Remove all rows that aren't from the contiguous US
+```{r, warning=F}
+data_us_only <- data[data$OriginState != "",]
+data_us_only <- data_us_only[data_us_only$OriginState %in% state.name, ]
+data_us_only <- data_us_only[!data_us_only$OriginState %in% c("Alaska", "Hawaii"), ]
+data_us_only$OriginState <- as.character(data_us_only$OriginState)
+data_us_only$OriginState <- tolower(data_us_only$OriginState)
+data_us_only$OriginState <- factor(data_us_only$OriginState)
+data_us_only$region <- region.adder(data_us_only, "OriginState")
+data_us_only$region <- factor(data_us_only$region)
+
+```
+
+### Part A. What factors impact the number of birds struck per incident the most?
+
+
+```{r, warning=F}
+lr <- lm(NumberStruckActual ~ Altitude + Engines + FlightPhase + ConditionsPrecipitation+ ConditionsSky + PilotWarned + region, data = data_us_only)
+summary(lr)
+```
+
+### Part B. Does the number of birds struck per incident change based on the region of the airport?
+
+Merge data for plotting purposes
+```{r, warning=F}
+# for plotting
+state <- map_data("state")
+
+merged_data <- left_join(state, data_us_only[, c("OriginState", "NumberStruckActual", "region")], 
+                     by = c("region" = "OriginState"))
+```
+
+Add some summary statistics for plotting purposes
+```{r, warning=F}
+state_avg <- merged_data %>%
+  group_by(region) %>%
+  summarize(avg_struck = mean(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(state_avg, by = "region") 
+
+state_max <- merged_data %>%
+  group_by(region) %>%
+  summarize(max_struck = max(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(state_max, by = "region") 
+
+
+region_avg <- merged_data %>%
+  group_by(region.y) %>%
+  summarize(region_avg = mean(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(region_avg, by = "region.y")
+```
+
+
+Average Number of Birds Struck per Incident by State - just for fun for the presentation!
+```{r, warning=F}
+ggplot(merged_data, aes(x=long, y=lat, fill = avg_struck, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Average Number of Birds Struck per Incident by State') + 
+  scale_fill_viridis(name = "Avg # Struck", limits = c(1, 13)) +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+
+```
+Plots that actually go with the question:
+Average Number of Birds Struck per Incident by Region - used in ANOVA model later
+
+```{r, warning=F}
+ggplot(merged_data, aes(x=long, y=lat, fill = region_avg, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Average Number of Birds Struck per Incident by Region') + 
+  scale_fill_continuous(low = "lightblue", high = "darkblue", name = "Avg # Struck") +
+  #  scale_fill_viridis(name = "Avg # Struck", limits = c(1, 13)) +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+```
+
+Maximum Number of Birds Struck per Incident by State - also for presentation
+```{r, warning=F}
+ggplot(merged_data, aes(x=long, y=lat, fill = max_struck, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Maximum Number of Birds Struck per Incident by State') + 
+  scale_fill_viridis(name = "Max # Struck") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+```
+
+
+Graph to show how the regions of the US were defined - this was done based on an understanding of geographical attributes + cultural divides. This graph was originally designed by me in CS614 and these regions are being used to answer new statistical questions related to this project.
+```{r, warning=F}
+df.region <- map_data("state")
+df.region$state <- df.region$region
+df.region$region <- region.adder(df.region, 'state')
+
+df.region <- df.region[!is.na(df.region$region), ]
+
+g <- ggplot(df.region, aes(x = long, y = lat, group = group, fill = region)) +
+geom_polygon(color="black") +
+  guides(na.translate = FALSE) +
+  theme_minimal() +
+  ggtitle("Regions of the United States") +
+  theme(axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(hjust = 0.5))
+g
+```
+
+```{r}
+
+anova <- aov(NumberStruckActual ~ region, data_us_only)
+summary(anova)
+```
+
+```{r}
+tukey <- TukeyHSD(anova)
+tukey
+```
+
+

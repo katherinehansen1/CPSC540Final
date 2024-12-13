@@ -1,9 +1,35 @@
 ---
-title: "Q4"
-author: "Hawkins_Kelsey"
+title: "Final Report"
+author: "Kelsey_Natalie_Katherine_Sarah"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
+
+# ~~~~ Introduction ~~~~
+
+# ~~~~ Question 1 ~~~~ 
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+
+## ~~~~ Discussion ~~~~
+
+# ~~~~ Question 2 ~~~~
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+
+## ~~~~ Discussion ~~~~
+
+# ~~~~ Question 3 ~~~~
+
+## ~~~~ Analysis ~~~~
+
+## ~~~~ Results ~~~~
+ 
+## ~~~~ Discussion ~~~~
 
 # ~~~~ Question 4 ~~~~
 # Based on the flight phase ("Climb", "Landing Roll", "Approach", "Take-off run"), which phase is correlated with the largest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?

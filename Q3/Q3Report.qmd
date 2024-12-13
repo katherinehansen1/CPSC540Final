@@ -1,0 +1,267 @@
+---
+title: Q3 - Quantity of Birds Struck
+format: pdf 
+include-in-header: custom-latex.sty
+editor: visual
+---
+
+## ***Question***
+
+**What factors impact the number of birds struck per incident the most, and does the number of birds struck per incident change based on the region of the airport?**
+
+```{r, warning=F, echo = F, message = F}
+# code needed to run visualizations/view outputs
+set.seed(2)
+library(dplyr)
+library(ggplot2)
+library(viridis)
+library(RColorBrewer)
+library(maps)
+library(ggplot2)
+library(usmap)
+```
+
+```{r, warning=F, echo = F}
+data <- read.csv("../Bird_strikes.csv")
+data$AirportName <- factor(data$AirportName)
+data$OriginState <- factor(data$OriginState)
+data$AirportRegion <- rep("", times = nrow(data))
+data$AircraftType <- factor(data$AircraftType)
+data$FlightPhase <- factor(data$FlightPhase)
+data$Engines <- as.numeric(data$Engines)
+data$ConditionsPrecipitation <- factor(data$ConditionsPrecipitation)
+data$ConditionsSky <- factor(data$ConditionsSky)
+data$PilotWarned <- factor(data$PilotWarned)
+```
+
+```{r, warning=F, echo = F}
+region.adder <- function(df, state){
+  northeast <- c("maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut", "new york", "new jersey", "pennsylvania", "delaware", "maryland")
+  west <- c("washington", "california", "oregon", "idaho", "montana", "wyoming", "utah", "nevada", "colorado")
+  southwest <- c("arizona", "new mexico", "texas", "oklahoma")
+  southeast <- c("west virginia", "virginia", "kentucky", "north carolina", "south carolina", "arkansas", "louisiana", "mississippi", "alabama", "georgia", "florida", "tennessee")
+  midwest <- c("north dakota", "south dakota", "minnesota", "wisconsin", "michigan", "nebraska", "kansas", "iowa", "missouri", "illinois", "indiana", "ohio")
+  alaska <- c("alaska")
+  hawaii <- c("hawaii")
+  region <- rep(NA, nrow(df))
+  
+  for (i in 1:nrow(df)){
+    if (df[i, state] %in% northeast) region[i] = "northeast"
+    else if (df[i, state] %in% west) region[i] = "west"
+    else if (df[i, state] %in% southwest) region[i] = "southwest"
+    else if (df[i, state] %in% southeast) region[i] = "southeast"
+    else if (df[i, state] %in% midwest) region[i] = "midwest"
+    else if (df[i, state] %in% alaska) region[i] = "alaska"
+    else if (df[i, state] %in% hawaii) region[i] = "hawaii"
+    else region[i] = NA
+    }
+  return (region)
+}
+
+```
+
+```{r, warning=F, echo = F}
+data_us_only <- data[data$OriginState != "",]
+data_us_only <- data_us_only[data_us_only$OriginState %in% state.name, ]
+data_us_only <- data_us_only[!data_us_only$OriginState %in% c("Alaska", "Hawaii"), ]
+data_us_only$OriginState <- as.character(data_us_only$OriginState)
+data_us_only$OriginState <- tolower(data_us_only$OriginState)
+data_us_only$OriginState <- factor(data_us_only$OriginState)
+data_us_only$region <- region.adder(data_us_only, "OriginState")
+
+```
+
+```{r, warning=F, echo = F}
+# for plotting
+state <- map_data("state")
+
+merged_data <- left_join(state, data_us_only[, c("OriginState", "NumberStruckActual", "region")], 
+                     by = c("region" = "OriginState"))
+```
+
+```{r, warning=F, echo = F}
+state_avg <- merged_data %>%
+  group_by(region) %>%
+  summarize(avg_struck = mean(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(state_avg, by = "region") 
+
+state_max <- merged_data %>%
+  group_by(region) %>%
+  summarize(max_struck = max(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(state_max, by = "region") 
+
+
+region_avg <- merged_data %>%
+  group_by(region.y) %>%
+  summarize(region_avg = mean(NumberStruckActual, na.rm = TRUE))
+
+merged_data <- merged_data %>%
+  left_join(region_avg, by = "region.y")
+```
+
+```{r, warning=F, echo = F}
+df.region <- map_data("state")
+df.region$state <- df.region$region
+df.region$region <- region.adder(df.region, 'state')
+
+df.region <- df.region[!is.na(df.region$region), ]
+
+g <- ggplot(df.region, aes(x = long, y = lat, group = group, fill = region)) +
+geom_polygon(color="black") +
+  guides(na.translate = FALSE) +
+  theme_minimal() +
+  ggtitle("Regions of the United States") +
+  theme(axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(hjust = 0.5))
+
+```
+
+## Analysis
+
+The column State was feature engineered to represent different regions of the US. This was done using domain knowledge of the geographical and cultural regions of the US, as well as consulting sources on the topic. Five regions of the US were defined: Northeast, Midwest, Southeast, Southwest, and West. The regions were defined as follows:
+
+```{r, echo = F}
+g
+```
+
+To answer the first part of the question, a linear regression model was run with the features AircraftType, Altitude, Engines, FlightPhase, ConditionsPrecipitation, ConditionsSky, PilotWarned, and the newly feature engineered Region to predict NumberStruckActual. Then, the magnitude and sign of the coefficients was studied, along with the significance level, to determine which predictors have the largest impact.
+
+Then, to answer the second part of the question, a one-way ANOVA was run to see if the mean of birds hit per strike, NumberStruckActual, was the same across all regions. The null hypothesis hypothesized that the mean of the number of birds stuck per incident is the same between all regions. The alternative hypothesis was that the mean of the number of birds struck per incident is not the same between all regions. The significance level, alpha, will be set to 0.05. The p-values returned from the ANOVA model were studied, and if they were less than 0.05, the null hypothesis was rejected and evidence would've been found that the means between the regions are not all the same. If differences were found, Tukey’s HSD test was used to determine which regions have differences.
+
+This will not be a causal estimate, as there are many other things not available in the dataset that may make the number of birds struck different including time of day, and the number of birds present and available to strike. A map visualization was used to show the average number of bird strikes per airport via a map ggplot.
+
+## Results
+
+### Part A - What factors impact the number of birds struck per incident the most?
+
+```{r, warning=F, echo = F, results=F}
+lr <- lm(NumberStruckActual ~ Altitude + Engines + FlightPhase + ConditionsPrecipitation+ ConditionsSky + PilotWarned + region, data = data_us_only)
+summary(lr)
+```
+
+The coefficients from the linear regression model were as follows:
+
+| Coefficient                            | Estimate   | p-value  | Significance Level |
+|----------------------------------------|------------|----------|--------------------|
+| (Intercept)                            | 1.583e+00  | 0.049869 | \*                 |
+| Altitude                               | -2.511e-04 | 2.29e-05 | \*\*\*             |
+| Engines                                | 5.780e-01  | 0.013584 | \*                 |
+| FlightPhaseClimb                       | 9.277e-01  | 9.34e-05 | \*\*\*             |
+| FlightPhaseDescent                     | 5.833e-01  | 0.297063 |                    |
+| FlightPhaseLanding Roll                | 1.531e-01  | 0.519334 |                    |
+| FlightPhaseParked                      | -1.163e+00 | 0.794215 |                    |
+| FlightPhaseTake-off run                | 3.823e-01  | 0.112498 |                    |
+| FlightPhaseTaxi                        | -1.171e+00 | 0.484559 |                    |
+| ConditionsPrecipitationFog, Rain       | -6.343e-01 | 0.686320 |                    |
+| ConditionsPrecipitationFog, Rain, Snow | -3.028e+00 | 0.734469 |                    |
+| ConditionsPrecipitationFog, Snow       | -2.662e+00 | 0.673824 |                    |
+| ConditionsPrecipitationNone            | -6.750e-01 | 0.269846 |                    |
+| ConditionsPrecipitationRain            | -4.093e-01 | 0.553174 |                    |
+| ConditionsPrecipitationRain, Snow      | -5.178e-01 | 0.920311 |                    |
+| ConditionsPrecipitationSnow            | 9.471e-01  | 0.541484 |                    |
+| ConditionsSkyOvercast                  | 3.788e-01  | 0.162548 |                    |
+| ConditionsSkySome Cloud                | -1.437e-01 | 0.446219 |                    |
+| PilotWarnedY                           | 2.973e-01  | 0.085486 | .                  |
+| regionnortheast                        | 9.747e-01  | 0.000192 | \*\*\*             |
+| regionsoutheast                        | 3.589e-01  | 0.134046 |                    |
+| regionsouthwest                        | 1.284e-01  | 0.656828 |                    |
+| regionwest                             | 4.024e-01  | 0.115306 |                    |
+
+Legend:
+
+\*\*\* : value is significant at the p \< 0.001 level
+
+\*\* : value is significant at the p \< 0.01 level
+
+\* : value is significant at the p \< 0.05 level
+
+. : value is significant at the p \< 0.1 level
+
+Because the p-value threshold was set to be p = 0.05 for this problem, only those coefficients with 1 or more \*s are considered significant. The significant features are as follows:
+
+-   For every increase of 1 foot in altitude, the number of birds predicted to be struck decreases by 2.511e-04.
+
+-   For every increase of 1 engine that a plane has, the number of birds predicted to be struck increases by 5.780e-01.
+
+-   When a flight is in the "Climb" phase, the number of birds predicted to be struck increases by 9.277e-01, compared to a flight that is in the "Approach" phase.
+
+-   When a flight originates in the northeast, the number of birds predicted to be struck increases by 9.747e-01, compared to a flight that originates in the mideast.
+
+No other variables have a significant impact on the predicted number of birds hit by a strike.
+
+### Part B - Does the number of birds struck per incident change based on the region of the airport?
+
+The results of the ANOVA model are as follows:
+
+```{r, echo = F}
+
+anova <- aov(NumberStruckActual ~ region, data_us_only)
+summary(anova)
+```
+
+These results show that there *is* evidence that the difference between the means of birds struck across regions is not zero, because the p-value is less than 0.05. The null hypothesis was rejected in favor of the alternative hypothesis, that there *is* a difference between the mean number of birds struck per incident by region. Because of this result, Tukey's HSD was run to determine which regions had evidence of a difference in means.
+
+```{r, echo = F}
+tukey <- TukeyHSD(anova)
+tukey
+```
+
+When a 95% CI contains 0, it is possible that the mean difference is 0, so the result is not significant. Only two sets of regions do not contain 0 in their 95% CI, so only two sets of regions have significant differences in means.
+
+-   Northeast & Midwest
+
+    -   Difference: 0.99 Birds
+
+    -   95% CI: \[0.28, 1.69\]
+
+-   Southwest & Northeast
+
+    -   Difference: -1.04 Birds
+
+    -   95% CI: \[-1.84, -0.23\]
+
+This means that the difference in the average number of birds struck in the Northeast is 0.99 birds more than the average in the Midwest. Similarly, the difference in the average number of birds struck per strike in the southwest is 1.04 birds fewer than in the Northeast. A map outlining the differences by region is shown below.
+
+```{r, warning=F}
+ggplot(merged_data, aes(x=long, y=lat, fill = region_avg, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Average Number of Birds Struck per Incident by Region') + 
+  scale_fill_continuous(low = "lightblue", high = "darkblue", name = "Avg # Struck") +
+  #  scale_fill_viridis(name = "Avg # Struck", limits = c(1, 13)) +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+```
+
+## Discussion
+
+There are many factors that impact how many birds are struck per incident. The result that no weather conditions had a significant impact on the number of birds struck per incident was surprising, as intuitively, I'd have expected the weather conditions to impact the presence of certain quantities of birds.
+
+Although the result that altitude has a negative effect on number of birds strike may seem counter-intuitive for lower altitudes, because planes reach altitudes of approximately 30,000 feet and birds very rarely have the capability of flying that high, bird strikes at very high altitudes are next to impossible. This result confirms that more bird strikes occur at lower altitudes, which aligns with the reasonable range for birds to be flying in.
+
+When planes have more engines, they are also expected to hit more birds per strike, which aligns with the idea that planes with more engines tend to be bigger. When a plane has more surface area available, it is possible for it to hit more birds in one strike.
+
+When a plane is in the "Climb" phase, there is a statistically significant impact on number of birds struck compared to a plane in the "Approach" phase. Although these flight phases have some overlap in Altitude, the Climb phase is much longer than the Approach phase, which may explain why more birds are struck per incident in this phase - they simply have more time to be struck.
+
+A plane taking off from the Northeast compared to the Midwest has a significant impact on the number of birds struck as well. This is related to part B and is discussed in more detail below.
+
+In the future, it'd be interesting to study how the time of year has an impact on the number of birds struck per incident. In certain months, birds tend to travel in larger packs due to migration patterns, so it is possible that bird strikes with larger numbers of birds are more common then. It'd be interesting to combine some of the results from questions 2 and 3 and include the month as a predictor in the regression to see if that has an impact.
+
+For part B of this question, only two sets of regions were found to have significant differences. Consultation with experts with more understanding of bird population distributions might be necessary for a full understanding of these difference, but an initial investigation into the bird population patterns showed that since 1970, the Midwest has seen a much higher bird population decline than the Northeast. This could be a reason that the number of birds hit per strike is higher in the Northeast, because there may be more birds present. The Southwest region in this dataset is made up of grasslands, arid lands, and western forests. A majority of the land is made up of grasslands and western forests, which have seen higher declines in bird population than have been seen in the mostly 'eastern forest' land that makes up the Northeast. So a similar conclusion can be drawn that perhaps there are not as many birds readily available in the Southwest compared to the Northeast.
+
+\
+In the future, it'd be helpful to gain a deeper understanding of the populations of birds in each region of the US. It'd be important to understand how different types of birds behave and whether or not they travel in flocks. If a region is made up of birds that mostly travel in flocks, it'd be possible that that region may see higher quantities of birds struck per incident.
