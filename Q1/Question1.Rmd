@@ -5,12 +5,11 @@ output: html_notebook
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
 
-## **Question**: Is there evidence that warned and non-warned pilots have the same mean birds hit? Does it even matter if they are warned?
+## **Question 1**: Hypothesis Testing
 
--   I will investigate the relationship between warned and non-warned pilots, and if there's an impact on whether or not the warning plays a role in how many birds are hit.
--   To answer this question I will use the columns PilotWarned, a dummy variable to detect if a pilot was warned about birds in their flight path, and NumbersStruckActual, the count of birds hit by the plane. I will start by creating some visuals to complete exploratory data analysis on the distribution of birds hit in comparison to pilots warned. Once the domain is further understood, I plan on using both Bayesian and Frequentist processes to answer my hypothesis.
--   For the Bayesian portion, I will create a Bayesian regression model in R that measures the number of birds struck in regards to if the pilot is warned or not. I will look at the credible intervals (CI) to see if the difference in average birds struck is meaningful. That is, if the CI does not include zero. I would like to make some kind of visual of this to further convey this concept.
--   For the frequentist portion, I will follow the same kind of process, but instead use a generalized linear model in R that measures the same relationship. After fitting the model, I will utilize a two one-sided T-test (TOST), a form of equivalence testing to see if there is evidence that our null hypothesis is true, or if there is a statistically significant effect between the two types of pilots. I will complete TOST by using the tsum_TOST function.
+Is there evidence that warnings of birds in the flight path have an effect on the number of birds hit? Does it even matter if pilots are warned?
+
+### Loading in packages and dataset
 
 ```{r}
 # Library City
@@ -25,15 +24,17 @@ library(bayesplot)
 
 getwd()
 data <- read.csv('Bird_strikes.csv')
-str(data)
-data$Date <- as.Date(data$FlightDate, format = "%m/%d/%y %H:%M")
 ```
 
 ## Exploratory Data Analysis
 
+In order to understand the relationship between the two columns, we need to explore the shape of the data and prepare it for modeling. When looking at the summary, we can see that on average, 2.7 birds were hit. Based on the summary statistics and visuals below, collisions typically do not hit an extreme number of birds, primarily keeping the count under 100. Outliers may skew our data a little bit, as the maximum amount of birds hit was 942. When looking at the dataset, there were 14,567 collisions where pilots were not warned, and 10,862 collisions when pilots were warned. In total, 36,789 birds were hit by pilots who were not warned, and warned pilots hit 31,860 birds. There is not a clear trend of collision counts changing throughout specific years.
+
 ```{r}
+# Formatting the date column as a date instead of string. For EDA purposes
+data$Date <- as.Date(data$FlightDate, format = "%m/%d/%y %H:%M")
+
 # Mean, Median, Quartiles, Maximum, Minimum
-# maximum is quite outlierlina
 summary(data$NumberStruckActual)
 
 # Count of Instances - how many incidences were the pilots warned vs not warned about the birds in the sky?
@@ -42,20 +43,16 @@ table(data$PilotWarned)
 data$WasWarned <- 0
 data$WasWarned[data$PilotWarned == "Y"] <- 1
 
-data
-
 ```
 
 ```{r}
 # Visual which shows the count of birds hit by warned pilots vs not warned pilots
 # just to give an idea and see if there's even a difference
 
-str(data)
-
 birds_hit <- data %>% group_by(PilotWarned) %>% summarise(NumberStruckCount = sum(NumberStruckActual), PilotCount = n())
 birds_hit
 
-
+# Total birds hit per warning category
 ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned)) + 
   geom_bar(stat = "identity") +
   theme_minimal() + 
@@ -63,6 +60,7 @@ ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned
   geom_text(aes(label = NumberStruckCount, vjust = -0.3)) +
   labs(title = "Total Birds Hit by Warned vs. Un-Warned Pilots")
   
+# Total pilots per warning category
 ggplot(birds_hit, aes(x = PilotWarned, y = PilotCount, fill = PilotWarned)) + 
   geom_bar(stat = "identity") +
   theme_minimal() + 
@@ -73,7 +71,7 @@ ggplot(birds_hit, aes(x = PilotWarned, y = PilotCount, fill = PilotWarned)) +
 ```
 
 ```{r}
-# warnings over time
+# Warnings over time
 data
 
 max_data <- data %>%
@@ -82,72 +80,49 @@ max_data <- data %>%
 ggplot(data, aes(x = Date, y = NumberStruckActual, color = PilotWarned)) + 
   geom_bar(stat = "identity", show.legend = FALSE) + 
   facet_wrap(~PilotWarned) + 
-  geom_text(data = max_data,aes(label = NumberStruckActual), vjust = -0.5, size = 3) + theme_minimal()
+  geom_text(data = max_data,aes(label = NumberStruckActual), vjust = -0.5, size = 3) + theme_minimal() + labs(title = "# of Birds Struck by Un-warned vs. Warned Pilots") + theme(plot.title = element_text(hjust = 0.5))
 ```
 
 ```{r}
-# Box plot of the column
+# Box plot of the column to show outliers
 boxplot(data$NumberStruckActual, 
-        main = "Instances of Birds Struck Counts", # oooo name that better
+        main = "Instances of Birds Struck Counts", 
         xlab = "Birds Struck", 
         ylab = "Values", 
         col = "lightblue", 
-        horizontal = TRUE)  # Use horizontal = TRUE for horizontal orientation
+        horizontal = TRUE)
 
 ```
 
-## Bayesian Process
+## Regression Modeling
 
-#### Gonna go back and watch her video to clean up what I have done. I am getting to a point where I'm over it, just trying to put a pen to paper yk
+Now that we have a deeper understanding of the data, we can model the relationship to understand if there are any effects of warnings on the number of birds struck. We used both Bayesian and frequentist modeling methods to obtain thorough and consistent results. While they both serve the same purposes, in their foundations they approach hypothesis testing with different expectations. Bayesian models incorporate prior information to give a probabilistic framework that updates beliefs about parameters as we gain new information. Frequentist models rely on observed data via random sampling. Combining these two approaches gives us a more cohesive idea of the relationship between the two variables.
 
-```{r}
-# Bayesian Hypothesis Testing
+### Bayesian Process
 
+When we begin Bayesian Hypothesis Testing, we must start by using prior distributions that make sense. Bayesian models can experience two kinds of sources of predictive distribution variability. One of which is distributional variability. This kind of variability questions the certainty of our parameters. In order to test our parameters, we included predictive checks of the prior distribution to ensure our samples from the prior match the reality. We wanted to use a somewhat informed prior, containing a normal distribution for the coefficient and the log-normal for the intercept, to prevent negative predictions, as it is impossible to hit a negative number of birds. Based on the prior predictive check, the prior was not as informative as hoped. There are a few samples that fall into the negative range. Mostly, the samples feature values consistent with the prior data.
 
-# Prior Selection. Here's attempt 1 with what I saw in the lecture video
-
-# Keep updating this to make a more realistic prior...i feel it's getting too uninformative and that i am pissing in the dark with this
-priors <- c(
-  prior("normal(0, 5)", class = "b"), # wider effect for coefficient
-  prior("normal(0, 4)", class = "Intercept"), # mean of 2? maybe this makes things closer to reality...
-  prior("gamma(0.1, 10)", class = "sigma") # substantial spread in variance
-  # should I just focus on coefficient?
-)
-
-# Prior Distribution Check....ugh it's fugly
-mod_0 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, sample_prior = "only")
-mod_0 |> pp_check() + xlim(-15, 15)
-```
+The posterior predictive check gives us more hope for the model, as the values sampled from the posterior distribution seem much more in line with the true values of the posterior. The same prior is used. No negative values are sampled, which makes sense in our scenario. The trace plots below the predictive checks also indicate convergence across sampling chains, a desirable trait for modeling reliability.
 
 ```{r}
-# Attempt 2
-
-# Less Informed Priors? Going to see how the model defaults without any established priors. Good place to start I guess
 
 # Lower bound idea: https://discourse.mc-stan.org/t/checking-understanding-of-bounds-on-priors/8940 since we at least need a collision value of 1. Stop predicting negatives!
 
-# Log normal idea to introduce non-negativity.
+# Log normal idea to introduce non-negativity, took out variance
 
-# took out variance
-
-# dunno how to tame the coeff...lock in on this later ig.
-
+# Prior distributions
 priors <- c(prior("normal(0, 2)", class = "b", lb = 0),
             prior("lognormal(log(2.7), 0.5)", class = "Intercept"))
-            #prior("gamma(2, 0.5)", class = "sigma", lb = 0))
 
 mod_1 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, sample_prior = "only")
 
 get_prior(mod_1)
 
+# Prior Predictive Check
 mod_1 |> pp_check()
+
+# PP Check zoomed in
 mod_1 |> pp_check() + xlim(-15, 15)
-```
-
-```{r}
-# Measure convergence & metrics
-mcmc_trace(mod_1)
-
 ```
 
 ```{r}
@@ -156,8 +131,15 @@ mcmc_trace(mod_1)
 mod_1 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, family = poisson())
 
 mod_1 |> pp_check() + xlim(-50, 50)
+
+# Summary of Values
 summary(mod_1)
 
+```
+
+```{r}
+# Measure convergence & metrics
+mcmc_trace(mod_1)
 ```
 
 ```{r}
@@ -165,16 +147,17 @@ mod_1$fit
 
 # Posterior Examination - parameter estimation for the coefficient
 # plot a parameter for coefficient to see densitiy of posteriors for each values
-# red plots that show our region of practical equivalence
-# all of the posterior is outside of the rope
 
 mcmc_areas(mod_1, pars = c("b_WasWarned"))
 ```
 
 ## Frequentist Process
 
+We can also use Frequentist Hypothesis testing methods to possibly confirm our findings on the relationship between warnings and birds hit. A generalized linear model was used, with a Poisson distribution to account for the fact that we are working with count data (\# of birds hit). We also wanted to see if this effect is equivalent to the null, meaning that while there is an effect, it is basically equivalent to zero. Lastly, we wanted to confirm our findings using a similar hypothesis test method, chi-square, to measure independence between birds hit and warnings to pilots.
+
 ```{r}
 # Modeling Modeling
+library(ggdist)
 
 # poisson for count
 mod_2 <- glm(NumberStruckActual ~ WasWarned, data = data, family = poisson())
@@ -182,9 +165,8 @@ mod_2 <- glm(NumberStruckActual ~ WasWarned, data = data, family = poisson())
 summary(mod_2)
 confint(mod_2)
 
-```
 
--   Equivalence Testing last thing i will fix before presentation and then this is what i will roll with for now.
+```
 
 ```{r}
 # T-testing
@@ -209,27 +191,24 @@ library(TOSTER)
 coef_summary <- summary(mod_2)$coefficients
 coef_summary
 
-mean_diff <- coef_summary["PilotWarnedY", "Estimate"]
-std_error <- coef_summary["PilotWarnedY", "Std. Error"]
-
 # Use the PilotWarnedY coefficient from GLM
 TOST_result <- tsum_TOST(
   m1 = mean_diff,
   mu = 0,
   sd1 = std_error, 
-  n1 = nrow(dat), 
+  n1 = nrow(data), 
   low_eqbound = -0.1*std_error, 
   high_eqbound = 0.1*std_error
 )
+
 
 # Ask about better ways to do TOST because I am not quite confident here
 
 TOST_result$decision
 
-# visual?
 ```
 
--   x\^2 Test. this is kinda bad
+-   
 
     ```{r}
     # Clean data to where theres a dummy var for if the pilot is warned, if the pilot is not warned
@@ -244,3 +223,15 @@ TOST_result$decision
     chisq_test <- chisq.test(hit$BirdsHit)
     print(chisq_test)
     ```
+
+## Results
+
+In order to determine if warning has an effect or not, we look at the estimate calculated and presented in the Bayesian model summary. Strangely enough, we see that a warning to a pilot increases the amount of birds hit by \~15%. When looking at the 95% credible interval to account for uncertainty, this increase can range between 14-16%. This uncertainty interval does not include zero or negative numbers, meaning that this model provides compelling evidence that there is a positive effect on birds hit when a pilot is warned of birds in the flight path. The posterior examination visual shows the range of effect, spanning across the credible interval.
+
+Similarly, the Frequentist model shows us that warnings have a positive effect on birds hit, with about a 15% increase. When looking at the confidence interval, we see that this value ranges between about 13% and 16%. The very low p-value indicates significance in this relationship, and gives more evidence against the null hypothesis. This result is very much in line with what we got from the Bayesian model. While this is a positive effect, it is not the largest. A two-sided T-test to measure equivalence to the null hypothesis was used. We set the lower and upper bound using the standard deviations. Based on the results, we found that we have evidence to reject the null hypothesis that there is no effect on birds hit and warnings. However, this effect does not entirely mean it's the most impactful relationship. Based on the test's results, the effect that warning has is not the strongest, and could be equivalent to no effect.
+
+Lastly, we wanted to use a separate Frequentist hypothesis testing method to see how far away our sample statistics are from the null hypothesis' statistics. A Chi-squared test was used to specifically measure the independence between birds hit by pilots who were warned versus those who were not. This test further assesses whether there is a statistically significant relationship between warnings and bird count. After running it, we received a high chi-squared score of 353.9, indicating the observed data is very different from if there was no effect between the number of birds hit and pilots warned. The chi-squared result also shares the same p-value from the model results, further conveying significance. Due to the chi-squared scores difference, we have further evidence that there is an effect of warnings on the number of birds hit.
+
+## Discussion
+
+Based on the findings from the Bayesian and Frequentist Hypothesis Testing methods, we have found that there is a positive effect on the number of birds hit if the pilot is warned about them. Based on the TOSTs results, there is evidence that while there is an effect greater than zero, it might be equivalent to zero, meaning that warnings may not increase the number that much. This seems counterintuitive, as the point of a warning is to prevent more birds being hit, keeping passengers safe, and preserving the engine of the aircraft. It could be that when pilots know about birds in the path, they overcompensate with safety manuvers and end up still hitting birds. Or maybe the warnings occur when the birds are too close to the aircraft and it is far too late to do anything. However, It could be worthwhile to explore covariates and introduce other factors from the data that may play a bigger role in effecting the number of birds hit. Understanding this relationship can help pilots prepare for birds and other wildlife in their path.
