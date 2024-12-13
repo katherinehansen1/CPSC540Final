@@ -1,6 +1,7 @@
 ---
-title: "CPSC540 Final Project Question 1"
-output: html_notebook
+title: "Question_1"
+format: pdf
+editor: visual
 ---
 
 ## **Question 1**: Hypothesis Testing
@@ -151,7 +152,7 @@ mcmc_areas(mod_1, pars = c("b_WasWarned"))
 
 ## Frequentist Process
 
-We can also use Frequentist Hypothesis testing methods to possibly confirm our findings on the relationship between warnings and birds hit. A generalized linear model was used, with a Poisson distribution to account for the fact that we are working with count data (\# of birds hit). We also wanted to see if this effect is equivalent to the null, meaning that while there is an effect, it is basically equivalent to zero. Lastly, we wanted to confirm our findings using a similar hypothesis test method, chi-square, to measure independence between birds hit and warnings to pilots.
+We can also use Frequentist Hypothesis testing methods to possibly confirm our findings on the relationship between warnings and birds hit. A generalized linear model was used, with a Poisson distribution to account for the fact that we are working with count data (# of birds hit). We also wanted to see if this effect is equivalent to the null, meaning that while there is an effect, it is basically equivalent to zero. Lastly, we wanted to confirm our findings using a similar hypothesis test method, chi-square, to measure independence between birds hit and warnings to pilots.
 
 ```{r}
 # Modeling Modeling
@@ -165,7 +166,6 @@ confint(mod_2)
 
 
 ```
-
 
 ```{r}
 library(TOSTER)
