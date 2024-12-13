@@ -1,7 +1,7 @@
 # CPSC540Final
 
 # Group Members (Name, email, student ID)
-* Sarah Fieck, fieck@chapman.edu, FIXME
+* Sarah Fieck, fieck@chapman.edu, 2374389
 * Katherine Hansen, kahansen@chapman.edu, 2326665
 * Kelsey Hawkins, kehawkins@chapman.edu, 2364453
 * Natalie Huante, huante@chapman.edu, 2374481
