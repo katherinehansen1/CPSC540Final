@@ -33,7 +33,7 @@ By answering these questions, we can gain insights into the frequency, causes, a
 
 Is there evidence that warnings of birds in the flight path have an effect on the number of birds hit? Does it even matter if pilots are warned?
 
-```{r, include=FALSE}
+```{r q1-setup, include=FALSE}
 # Library City
 
 library(ggdag)
@@ -52,7 +52,9 @@ data <- read.csv('../Bird_strikes.csv')
 
 In order to understand the relationship between the two columns, we need to explore the shape of the data and prepare it for modeling. When looking at the summary, we can see that on average, 2.7 birds were hit. Based on the summary statistics and visuals below, collisions typically do not hit an extreme number of birds, primarily keeping the count under 100. Outliers may skew our data a little bit, as the maximum amount of birds hit was 942. When looking at the dataset, there were 14,567 collisions where pilots were not warned, and 10,862 collisions when pilots were warned. In total, 36,789 birds were hit by pilots who were not warned, and warned pilots hit 31,860 birds. There is not a clear trend of collision counts changing throughout specific years.
 
-```{r, warning=FALSE, results='hold'}
+Below we include the quartiles of the data, a table with how many pilots were warned vs not warned, and a few other figures.
+
+```{r q1-eda-setup, warning=FALSE, results='hold', echo=FALSE}
 # Formatting the date column as a date instead of string. For EDA purposes
 data$Date <- as.Date(data$FlightDate, format = "%m/%d/%y %H:%M")
 
@@ -66,14 +68,14 @@ data$WasWarned <- 0
 data$WasWarned[data$PilotWarned == "Y"] <- 1
 ```
 
-```{r, warning=FALSE, results='hide', echo=FALSE}
+```{r q1-eda-graph1, warning=FALSE, results='hide', echo=FALSE}
 # Visual which shows the count of birds hit by warned pilots vs not warned pilots
 # just to give an idea and see if there's even a difference
 birds_hit <- data %>% group_by(PilotWarned) %>% summarise(NumberStruckCount = sum(NumberStruckActual), PilotCount = n())
 birds_hit
 ```
 
-```{r, warning=FALSE, results='hold', echo=FALSE}
+```{r q1-eda-graph2, warning=FALSE, results='hold', echo=FALSE}
 # Total birds hit per warning category
 ggplot(birds_hit, aes(x = PilotWarned, y = NumberStruckCount, fill = PilotWarned)) + 
   geom_bar(stat = "identity") +
@@ -92,7 +94,7 @@ ggplot(birds_hit, aes(x = PilotWarned, y = PilotCount, fill = PilotWarned)) +
 
 ```
 
-```{r, echo=FALSE}
+```{r q1-eda-graph3, echo=FALSE}
 # Warnings over time
 max_data <- data %>%
   filter(NumberStruckActual == max(NumberStruckActual))
@@ -103,7 +105,7 @@ ggplot(data, aes(x = Date, y = NumberStruckActual, color = PilotWarned)) +
   geom_text(data = max_data,aes(label = NumberStruckActual), vjust = -0.5, size = 3) + theme_minimal() + labs(title = "# of Birds Struck by Un-warned vs. Warned Pilots") + theme(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r, echo=FALSE}
+```{r q1-eda-graph4, echo=FALSE}
 # Box plot of the column to show outliers
 boxplot(data$NumberStruckActual, 
         main = "Instances of Birds Struck Counts", 
@@ -123,11 +125,13 @@ When we begin Bayesian Hypothesis Testing, we must start by using prior distribu
 
 The posterior predictive check gives us more hope for the model, as the values sampled from the posterior distribution seem much more in line with the true values of the posterior. The same prior is used. No negative values are sampled, which makes sense in our scenario. The trace plots below the predictive checks also indicate convergence across sampling chains, a desirable trait for modeling reliability.
 
-```{r, warning=FALSE, results='hide', message=FALSE}
+```{r q1-bayesian-setup-comments, warning=FALSE, include=FALSE}
 
 # Lower bound idea: https://discourse.mc-stan.org/t/checking-understanding-of-bounds-on-priors/8940 since we at least need a collision value of 1. Stop predicting negatives!
 # Log normal idea to introduce non-negativity, took out variance
+```
 
+```{r q1-bayesian-setup, warning=FALSE, results='hide', message=FALSE}
 # Prior distributions
 priors <- c(prior("normal(0, 2)", class = "b", lb = 0),
             prior("lognormal(log(2.7), 0.5)", class = "Intercept"))
@@ -135,7 +139,7 @@ priors <- c(prior("normal(0, 2)", class = "b", lb = 0),
 mod_1 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, sample_prior = "only")
 ```
 
-```{r, warning=FALSE, results='hold'}
+```{r q1-bayesian-precheck, warning=FALSE, results='hold'}
 get_prior(mod_1)
 
 # Prior Predictive Check
@@ -145,30 +149,32 @@ mod_1 |> pp_check()
 mod_1 |> pp_check() + xlim(-15, 15)
 ```
 
-```{r, results = 'hide', warning=FALSE, message=FALSE}
+```{r q1-bayesian-model, results = 'hide', warning=FALSE, message=FALSE}
 # Posterior Distribution Check 
 # poisson likelihood function for non-negativity count (count of birds hit)
 mod_1 <- brm(NumberStruckActual ~ WasWarned, data = data, prior = priors, family = poisson())
 ```
 
-```{r, results='hold', warning=FALSE}
+```{r q1-bayesian-postcheck, results='hold', warning=FALSE}
 mod_1 |> pp_check() + xlim(-50, 50)
 
 # Summary of Values
 summary(mod_1)
 ```
 
-```{r}
+```{r q1-mcmc-trace}
 # Measure convergence & metrics
 mcmc_trace(mod_1)
 ```
 
-```{r, results = 'hold'}
-mod_1$fit
+```{r q1-comments, results = 'hold', include=FALSE}
 
 # Posterior Examination - parameter estimation for the coefficient
 # plot a parameter for coefficient to see densitiy of posteriors for each values
+```
 
+```{r q1-mcmc-areas, results = 'hold'}
+mod_1$fit
 mcmc_areas(mod_1, pars = c("b_WasWarned"))
 ```
 
@@ -176,12 +182,12 @@ mcmc_areas(mod_1, pars = c("b_WasWarned"))
 
 We can also use Frequentist Hypothesis testing methods to possibly confirm our findings on the relationship between warnings and birds hit. A generalized linear model was used, with a Poisson distribution to account for the fact that we are working with count data (# of birds hit). We also wanted to see if this effect is equivalent to the null, meaning that while there is an effect, it is basically equivalent to zero. Lastly, we wanted to confirm our findings using a similar hypothesis test method, chi-square, to measure independence between birds hit and warnings to pilots.
 
-```{r, include=FALSE}
+```{r q1-freq-lib, include=FALSE}
 # Modeling Modeling
 library(ggdist)
 ```
 
-```{r, results = 'hold', warning=FALSE}
+```{r q1-freq-model, results = 'hold', warning=FALSE}
 # poisson for count
 mod_2 <- glm(NumberStruckActual ~ WasWarned, data = data, family = poisson())
 
@@ -189,7 +195,7 @@ summary(mod_2)
 confint(mod_2)
 ```
 
-```{r, include = FALSE}
+```{r q1-freq-tost-setup, include = FALSE}
 library(TOSTER)
 
 coef_summary <- summary(mod_2)$coefficients
@@ -202,7 +208,7 @@ mean_diff <- with(data,
 std_error <- coef_summary["WasWarned", "Std. Error"]
 ```
 
-```{r, tidy = TRUE, tidy.opts = list(width.cutoff = 60)}
+```{r q1-freq-tost-output, tidy = TRUE, tidy.opts = list(width.cutoff = 60)}
 TOST_result <- tsum_TOST(
   m1 = mean_diff,
   mu = 0,
@@ -211,38 +217,39 @@ TOST_result <- tsum_TOST(
   low_eqbound = -0.1*std_error, 
   high_eqbound = 0.1*std_error
 )
-
 TOST_result$decision
 ```
 
-```{r}
-# Clean data to where theres a dummy var for if the pilot is warned, if the pilot is not warned
+```{r q1-chisquared, results='hold'}
+# Clean data to where there's a dummy var for if the pilot is warned, if the pilot is not warned
 # Measure the independence of warnings and birds being hit
 hit <- data %>%
   group_by(WasWarned) %>%
   summarise(BirdsHit = sum(NumberStruckActual))
+```
 
+```{r}
 chisq_test <- chisq.test(hit$BirdsHit)
 print(chisq_test)
 ```
 
 ### Results
 
-In order to determine if warning has an effect or not, we look at the estimate calculated and presented in the Bayesian model summary. Strangely enough, we see that a warning to a pilot increases the amount of birds hit by \~15%. When looking at the 95% credible interval to account for uncertainty, this increase can range between 14-16%. This uncertainty interval does not include zero or negative numbers, meaning that this model provides compelling evidence that there is a positive effect on birds hit when a pilot is warned of birds in the flight path. The posterior examination visual shows the range of effect, spanning across the credible interval.
+In order to determine if `warning` has an effect or not, we look at the estimate calculated and presented in the Bayesian model summary. Strangely enough, we see that `wasWarned`, aka a warning to a pilot increases `NumberStruckActual` by \~15%. When looking at the 95% credible interval to account for uncertainty, this increase can range between 14-16%. This uncertainty interval does not include zero or negative numbers, meaning that this model provides compelling evidence that there is a positive effect on birds hit when a pilot is warned of birds in the flight path. The posterior examination visual shows the range of effect, spanning across the credible interval.
 
-Similarly, the Frequentist model shows us that warnings have a positive effect on birds hit, with about a 15% increase. When looking at the confidence interval, we see that this value ranges between about 13% and 16%. The very low p-value indicates significance in this relationship, and gives more evidence against the null hypothesis. This result is very much in line with what we got from the Bayesian model. While this is a positive effect, it is not the largest. A two-sided T-test to measure equivalence to the null hypothesis was used. We set the lower and upper bound using the standard deviations. Based on the results, we found that we have evidence to reject the null hypothesis that there is no effect on birds hit and warnings. However, this effect does not entirely mean it's the most impactful relationship. Based on the test's results, the effect that warning has is not the strongest, and could be equivalent to no effect.
+Similarly, the Frequentist model shows us that `wasWarned` has a positive effect on `NumberStruckActual`, with about a 15% increase. When looking at the confidence interval, we see that this value ranges between about 13% and 16%. The very low p-value indicates significance in this relationship, and gives more evidence against the null hypothesis. This result is very much in line with what we got from the Bayesian model. While this is a positive effect, it is not the largest. A two-sided T-test to measure equivalence to the null hypothesis was used. We set the lower and upper bound using the standard deviations. Based on the results, we found that we have evidence to reject the null hypothesis that there is no effect on `NumberStruckActual` and `wasWarned` However, this effect does not entirely mean it's the most impactful relationship. Based on the test's results, the effect that `wasWarned` has is not the strongest, and could be equivalent to no effect.
 
 Lastly, we wanted to use a separate Frequentist hypothesis testing method to see how far away our sample statistics are from the null hypothesis' statistics. A Chi-squared test was used to specifically measure the independence between birds hit by pilots who were warned versus those who were not. This test further assesses whether there is a statistically significant relationship between warnings and bird count. After running it, we received a high chi-squared score of 353.9, indicating the observed data is very different from if there was no effect between the number of birds hit and pilots warned. The chi-squared result also shares the same p-value from the model results, further conveying significance. Due to the chi-squared scores difference, we have further evidence that there is an effect of warnings on the number of birds hit.
 
 ### Discussion
 
-Based on the findings from the Bayesian and Frequentist Hypothesis Testing methods, we have found that there is a positive effect on the number of birds hit if the pilot is warned about them. Based on the TOST results, there is evidence that while there is an effect greater than zero, it might be equivalent to zero, meaning that warnings may not increase the number that much. This seems counter-intuitive, as the point of a warning is to prevent more birds being hit, keeping passengers safe, and preserving the engine of the aircraft. It could be that when pilots know about birds in the path, they overcompensate with safety maneuvers and end up still hitting birds. Or maybe the warnings occur when the birds are too close to the aircraft and it is far too late to do anything. However, It could be worthwhile to explore covariates and introduce other factors from the data that may play a bigger role in effecting the number of birds hit. Understanding this relationship can help pilots prepare for birds and other wildlife in their path.
+Based on the findings from the Bayesian and Frequentist Hypothesis Testing methods, we have found that there is a positive effect on `NumberStruckActual` if the pilot is warned about them. Based on the TOST results, there is evidence that while there is an effect greater than zero, it might be equivalent to zero, meaning that warnings may not increase the number that much. This seems counter-intuitive, as the point of a warning is to prevent more birds being hit, keeping passengers safe, and preserving the engine of the aircraft. It could be that when pilots know about birds in the path, they overcompensate with safety maneuvers and end up still hitting birds. Or maybe the warnings occur when the birds are too close to the aircraft and it is far too late to do anything. However, It could be worthwhile to explore covariates and introduce other factors from the data that may play a bigger role in effecting the number of birds hit. Understanding this relationship can help pilots prepare for birds and other wildlife in their path.
 
 ## ***Q2 - Seasonality & Trends Over Time***
 
 **Does the month of the year affect the count of bird strikes and, if so, which months are riskier? Are bird strikes increasing over the years?**
 
-```{r, include=FALSE}
+```{r q2-load-data, include=FALSE}
 
 library(readr)
 
@@ -256,9 +263,9 @@ print(data)
 
 The first step is to summarize our bird strike data by month and year. Since we are concerned with the number of bird strikes that has been recorded within each month, we should calculate the total strike counts by month and year.
 
-The original data set has a variable, "FlightDate", that contains the date in which the flight took place. We will take this value and extract the month and year. We will then aggregate the data on those values and store the monthly counts in a new table.
+The original data set has a variable, `FlightDate`, that contains the date in which the flight took place. We will take this value and extract the `month` and `year`. We will then aggregate the data on those values and store the monthly counts in a new table. A preview of this new table is shown below.
 
-```{r, echo = T, results = 'hide', error=FALSE, warning=FALSE, message=FALSE}
+```{r q2-aggregate-data, include=FALSE}
 # library import
 library(dplyr)
 
@@ -275,46 +282,42 @@ strikes_by_month <- data %>%
   summarise(Count = n())
 ```
 
-```{r}
-# verify the new table was created correctly
+```{r q2-check-aggrdatatable}
 print(strikes_by_month)
-
 ```
 
 ### Regression Model
 
-Now that we have aggregated our data, we want to fit our regression model. The outcome will be the count of bird strikes by month and year and the predictors will be the month and year in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
+Now that we have aggregated our data, we want to fit our regression model. The outcome will be the `count` of bird strikes by month and year and the predictors will be the `month` and `year` in which the flight took place. This will allow us to calculate the effects of the month and the year on the total count of strikes that month.
 
 We will use a poisson regression model because we are working with count data, so a poisson distribution is most appropriate. For the link function, we include a log function.
 
-As a quick note, the count of bird strikes is treated as a continuous variable, while the month and year is a categorical variable. So, the coefficients of our model will indicate the following:
+As a quick note, the `count` of bird strikes is treated as a continuous variable, while the `month` and `year` is a categorical variable. So, the coefficients of our model will indicate the following:
 
--   The coefficients for *Month* will represent the relative risk of bird strikes compared to the baseline, which will be the month of January, or Month01. This will help us look at seasonality.
--   The coefficients for *Year* will represent the expected increase or decrease in bird strikes for each year compared to the baseline, which will be the year 2000. This happens to be the earliest year in our dataset. This will help us look at trends over time and to identify if birds strikes are currently on the decline or the incline.
+-   The coefficients for `Month` will represent the relative risk of bird strikes compared to the baseline, which will be the month of January, or Month01. This will help us look at seasonality.
+-   The coefficients for `Year` will represent the expected increase or decrease in bird strikes for each year compared to the baseline, which will be the year 2000. This happens to be the earliest year in our dataset. This will help us look at trends over time and to identify if birds strikes are currently on the decline or the incline.
 
 So, to review, our baseline will be January 2000 and each coefficient will represent a relative increase or decrease to this month.
 
-```{r}
-
+```{r q2-month-factor, include=FALSE}
 # make sure that month is categorical and not continuous
 strikes_by_month$Month <- as.factor(strikes_by_month$Month)
+```
 
+```{r q2-poisson-model, warning=FALSE, results='hold'}
 # regression model 
 poisson_model <- glm(Count ~ Month + Year, 
                      data = strikes_by_month, 
                      family = poisson(link = "log"))
-
 # output the coefficients 
 summary(poisson_model)
-
 # look at the confidence intervals for uncertainty
 confint(poisson_model)
-
 ```
 
 Given the above output, we can interpret not only the coefficients, but also the confidence intervals of our results in order to assess the certainty of those results.
 
-**Month Coefficients:** As an example, let's first take Month02's (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is $e^{-0.1937}$ or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
+**Month Coefficients:** As an example, let's first take `Month02`'s (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is $e^{-0.1937}$ or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
 
 | Month                                 | Percentage Relative Rate     | Percentage Difference |
 |------------------------------|------------------------|------------------|
@@ -331,11 +334,11 @@ Given the above output, we can interpret not only the coefficients, but also the
 | **11** - November                     | $(e^{0.6534})*100$ = 192.2%  | +92.2%                |
 | **12** - December                     | $(e^{0.0839})*100$ = 108.8%  | +8.8%                 |
 
-Now, while the coefficients suggest one conclusion, we also calculate the 95% confidence intervals for each month's effect. This is important to consider because if any month's confidence interval contains the value of 0, then that means that the possibility of the month having no effect in comparison to our baseline is within our range of likely effect values. Therefore, we would be more uncertain about that particular month's observed effects being significant and enough to conclude there is an effect.
+Now, while the coefficients suggest one conclusion, we also calculate the 95% confidence intervals for each month's effect. This is important to consider because if any month's confidence interval contains the value of 0, then that means that the possibility of the `month` having no effect in comparison to our baseline is within our range of likely effect values. Therefore, we would be more uncertain about that particular month's observed effects being significant and enough to conclude there is an effect.
 
 Below is a graph that will visualize the relative percentages listed compared to the baseline of January, along with the confidence intervals for each month.
 
-```{r, tidy = TRUE, tidy.opts = list(width.cutoff = 60)}
+```{r q2-months-graph, echo=FALSE}
 # library imports 
 library(ggplot2)
 
@@ -373,10 +376,10 @@ ggplot(percentage_diff_data, aes(x = Month, y = PercentDiff)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-**Year Coefficients:** We can take a similar approach with the coefficients for each year in the model's output. Like the month coefficients, the year coefficients also represent the log-relative rate of bird strikes for each year compared to the baseline year, which is the year 2000. So, each coefficient represents the relative increase or decrease in expected bird strikes for that year. We can look at the group of coefficients chronologically to then make conclusions and/or observations about whether there has been a trend of increasing/decreasing rates over time or if there are any years that showed unexpected rates. To make these coefficients easier to interpret, we will apply the same conversion from log-relative rates to percentage relative rates, which will give us the difference in percentages, compared to 2000. Below, we include these calculations.
+**Year Coefficients:** We can take a similar approach with the coefficients for each `year` in the model's output. Like the month coefficients, the year coefficients also represent the log-relative rate of bird strikes for each year compared to the baseline year, which is the year `2000.` So, each coefficient represents the relative increase or decrease in expected bird strikes for that year. We can look at the group of coefficients chronologically to then make conclusions and/or observations about whether there has been a trend of increasing/decreasing rates over time or if there are any years that showed unexpected rates. To make these coefficients easier to interpret, we will apply the same conversion from log-relative rates to percentage relative rates, which will give us the difference in percentages, compared to 2000. Below, we include these calculations.
 
 | Year                          | Percentage Relative Rate     | Percentage Difference |
-|--------------------------|---------------------------|-------------------|
+|---------------------------|--------------------------|--------------------|
 | **2000** - Intercept/Baseline | 1 (Baseline)                 | 0% (Baseline)         |
 | **2001**                      | $(e^{-0.1056})*100 = 90\%$   | -10.0%                |
 | **2002**                      | $(e^{0.2068})*100 = 123\%$   | +23.0%                |
@@ -390,9 +393,9 @@ ggplot(percentage_diff_data, aes(x = Month, y = PercentDiff)) +
 | **2010**                      | $(e^{0.8255})*100 = 228.3\%$ | +128.3%               |
 | **2011**                      | $(e^{0.7699})*100 = 215.9\%$ | +115.9%               |
 
-Below is a graph that will visualize the relative percentages listed compared to the baseline of 2000, along with the confidence intervals for each year.
+Below is a graph that will visualize the relative percentages listed compared to the baseline of 2000, along with the confidence intervals for each `year`.
 
-```{r}
+```{r q2-years-graph, echo=FALSE}
 # library imports 
 library(ggplot2)
 
@@ -439,19 +442,19 @@ ggplot(year_percentage_diff_data, aes(x = Year, y = PercentDiff)) +
 
 ### Results
 
-**Question 1:** Does the month of the year affect the count of bird strikes and, if so, which months are riskier?
+**Part A:** Does the `month` of the year affect the count of bird strikes and, if so, which months are riskier?
 
-For each month (with the exclusion of December), we can see that their confidence interval does not contain the percentage difference of 0%, which would have indicated that no difference between that month and the baseline (January) would be plausible. However, since this is not the case, we can conclude that each month does have an effect on what the expected rate is. Each month (with the exclusion of February) has a varying level of increase in the relative rate, indicating there is some seasonality.
+For each `month` (with the exclusion of December), we can see that their confidence interval does not contain the percentage difference of 0%, which would have indicated that no difference between that month and the baseline (January) would be plausible. However, since this is not the case, we can conclude that each month does have an effect on what the expected rate is. Each month (with the exclusion of February) has a varying level of increase in the relative rate, indicating there is some seasonality.
 
 So, we can conclude that, from the Poisson regression results, that the month of the year does affect the relative rate of bird strikes we expect to see. Summer and early fall months (July, August, September, October) have the highest relative increases compared to January at +249.9%, +295.9%, +264.5% and +224.3% respectively, so they could be considered the "riskiest" months for bird strikes. Meanwhile, winter and early spring months (December, February, March) had the lowest relative rates at +8.8%, -17.6%, and +31.6%.
 
-**Question 2:** Are bird strikes increasing over the years?
+**Part B:** Are bird strikes increasing over the years?
 
-Relative to the year 2000, we can see that bird strikes have overall increased over time, with some noise and fluctuations in between. For example, from the year 2008 to 2009 we see a rather large jump from a percentage difference of +65.2% to +137.5%, but outside of this noise, we can observe a steady increase since 2000, with the rates more than doubling from the baseline (2000) to 2011.
+Relative to the `year` 2000, we can see that bird strikes have overall increased over time, with some noise and fluctuations in between. For example, from the year 2008 to 2009 we see a rather large jump from a percentage difference of +65.2% to +137.5%, but outside of this noise, we can observe a steady increase since 2000, with the rates more than doubling from the baseline (2000) to 2011.
 
 Again, we also include the 95% confidence intervals for these results as well and can observe that, for each year, neither CI includes the percentage difference of 0%. This means that for each year, the difference in the percentage relative rates does not include the possibility of that difference to be 0, or there being no difference. So, we can more confidently conclude that there is a difference in those years, and combined with the coefficients, that that difference is steadily increasing over time.
 
-```{r, warning=FALSE}
+```{r q2-yearly-comparison-graph, warning=FALSE}
 library(ggplot2)
 
 year_comparison_data <- data.frame(
@@ -496,7 +499,7 @@ If we were to elaborate on and continue exploring the seasonality and trends of 
 
 **What factors impact the number of birds struck per incident the most, and does the number of birds struck per incident change based on the region of the airport?**
 
-```{r, warning=F, echo = F, message = F}
+```{r q3-load-libraries, warning=F, echo = F, message = F}
 # code needed to run visualizations/view outputs
 set.seed(2)
 library(dplyr)
@@ -508,7 +511,7 @@ library(ggplot2)
 library(usmap)
 ```
 
-```{r, warning=F, echo = F}
+```{r q3-data-cleanup, warning=F, echo = F}
 data <- read.csv("../Bird_strikes.csv")
 data$AirportName <- factor(data$AirportName)
 data$OriginState <- factor(data$OriginState)
@@ -521,7 +524,7 @@ data$ConditionsSky <- factor(data$ConditionsSky)
 data$PilotWarned <- factor(data$PilotWarned)
 ```
 
-```{r, warning=F, echo = F}
+```{r q3-regions-setup, warning=F, echo = F}
 region.adder <- function(df, state){
   northeast <- c("maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut", "new york", "new jersey", "pennsylvania", "delaware", "maryland")
   west <- c("washington", "california", "oregon", "idaho", "montana", "wyoming", "utah", "nevada", "colorado")
@@ -547,7 +550,7 @@ region.adder <- function(df, state){
 
 ```
 
-```{r, warning=F, echo = F}
+```{r q3-usdata, warning=F, echo = F}
 data_us_only <- data[data$OriginState != "",]
 data_us_only <- data_us_only[data_us_only$OriginState %in% state.name, ]
 data_us_only <- data_us_only[!data_us_only$OriginState %in% c("Alaska", "Hawaii"), ]
@@ -558,7 +561,7 @@ data_us_only$region <- region.adder(data_us_only, "OriginState")
 
 ```
 
-```{r, warning=F, echo = F}
+```{r q3-map-setup, warning=F, echo = F}
 # for plotting
 state <- map_data("state")
 
@@ -566,7 +569,7 @@ merged_data <- left_join(state, data_us_only[, c("OriginState", "NumberStruckAct
                      by = c("region" = "OriginState"))
 ```
 
-```{r, warning=F, echo = F}
+```{r q3-map-setup2, warning=F, echo = F}
 state_avg <- merged_data %>%
   group_by(region) %>%
   summarize(avg_struck = mean(NumberStruckActual, na.rm = TRUE))
@@ -590,7 +593,7 @@ merged_data <- merged_data %>%
   left_join(region_avg, by = "region.y")
 ```
 
-```{r, warning=F, echo = F}
+```{r q3-map-setup3, warning=F, echo = F}
 df.region <- map_data("state")
 df.region$state <- df.region$region
 df.region$region <- region.adder(df.region, 'state')
@@ -615,7 +618,7 @@ geom_polygon(color="black") +
 
 The column State was feature engineered to represent different regions of the US. This was done using domain knowledge of the geographical and cultural regions of the US, as well as consulting sources on the topic. Five regions of the US were defined: Northeast, Midwest, Southeast, Southwest, and West. The regions were defined as follows:
 
-```{r, echo = F}
+```{r q3-map, echo = F}
 g
 ```
 
@@ -629,7 +632,7 @@ This will not be a causal estimate, as there are many other things not available
 
 #### Part A - What factors impact the number of birds struck per incident the most?
 
-```{r, warning=F, echo = F, results=F}
+```{r q3-linear-model, warning=F, echo = F, results=F}
 lr <- lm(NumberStruckActual ~ Altitude + Engines + FlightPhase + ConditionsPrecipitation+ ConditionsSky + PilotWarned + region, data = data_us_only)
 summary(lr)
 ```
@@ -637,7 +640,7 @@ summary(lr)
 The coefficients from the linear regression model were as follows:
 
 | Coefficient                            | Estimate   | p-value  | Significance Level |
-|----------------------|-----------------|-----------------|-----------------|
+|------------------------------|--------------|--------------|--------------|
 | (Intercept)                            | 1.583e+00  | 0.049869 | \*                 |
 | Altitude                               | -2.511e-04 | 2.29e-05 | \*\*\*             |
 | Engines                                | 5.780e-01  | 0.013584 | \*                 |
@@ -678,7 +681,7 @@ Because the p-value threshold was set to be p = 0.05 for this problem, only thos
 
 -   For every increase of 1 engine that a plane has, the number of birds predicted to be struck increases by 5.780e-01.
 
--   When a flight is in the "Climb" phase, the number of birds predicted to be struck increases by 9.277e-01, compared to a flight that is in the "Approach" phase.
+-   When a flight is in the `Climb` phase, the number of birds predicted to be struck increases by 9.277e-01, compared to a flight that is in the `Approach` phase.
 
 -   When a flight originates in the northeast, the number of birds predicted to be struck increases by 9.747e-01, compared to a flight that originates in the mideast.
 
@@ -688,7 +691,7 @@ No other variables have a significant impact on the predicted number of birds hi
 
 The results of the ANOVA model are as follows:
 
-```{r, echo = F}
+```{r q3-anova, echo = F}
 
 anova <- aov(NumberStruckActual ~ region, data_us_only)
 summary(anova)
@@ -696,7 +699,7 @@ summary(anova)
 
 These results show that there *is* evidence that the difference between the means of birds struck across regions is not zero, because the p-value is less than 0.05. The null hypothesis was rejected in favor of the alternative hypothesis, that there *is* a difference between the mean number of birds struck per incident by region. Because of this result, Tukey's HSD was run to determine which regions had evidence of a difference in means.
 
-```{r, echo = F}
+```{r q3-tukey, echo = F}
 tukey <- TukeyHSD(anova)
 tukey
 ```
@@ -717,7 +720,7 @@ When a 95% CI contains 0, it is possible that the mean difference is 0, so the r
 
 This means that the difference in the average number of birds struck in the Northeast is 0.99 birds more than the average in the Midwest. Similarly, the difference in the average number of birds struck per strike in the southwest is 1.04 birds fewer than in the Northeast. A map outlining the differences by region is shown below.
 
-```{r, warning=F}
+```{r q3-map-avgbirds, warning=F}
 ggplot(merged_data, aes(x=long, y=lat, fill = region_avg, group=group)) + 
   geom_polygon(color = "white") + 
   ggtitle('Average Number of Birds Struck per Incident by Region') + 
@@ -750,13 +753,11 @@ In the future, it'd be interesting to study how the time of year has an impact o
 
 For part B of this question, only two sets of regions were found to have significant differences. Consultation with experts with more understanding of bird population distributions might be necessary for a full understanding of these difference, but an initial investigation into the bird population patterns showed that since 1970, the Midwest has seen a much higher bird population decline than the Northeast. This could be a reason that the number of birds hit per strike is higher in the Northeast, because there may be more birds present. The Southwest region in this dataset is made up of grasslands, arid lands, and western forests. A majority of the land is made up of grasslands and western forests, which have seen higher declines in bird population than have been seen in the mostly 'eastern forest' land that makes up the Northeast. So a similar conclusion can be drawn that perhaps there are not as many birds readily available in the Southwest compared to the Northeast.
 
-\
 In the future, it'd be helpful to gain a deeper understanding of the populations of birds in each region of the US. It'd be important to understand how different types of birds behave and whether or not they travel in flocks. If a region is made up of birds that mostly travel in flocks, it'd be possible that that region may see higher quantities of birds struck per incident.
 
 ## ***Q4 - KELSEY***
 
 ## Useful Links
-
+- [Question 3 Full Code]()
 -   [Bird Strikes Data Set](https://www.kaggle.com/datasets/ulrikthygepedersen/airplane-bird-strikes/data)
-
 -   [Project GitHub](https://github.com/katherinehansen1/CPSC540Final/tree/9-merge-write-ups)
