@@ -1,5 +1,5 @@
 ---
-title: "Question2: Seasonality & Trends"
+title: "Question 4: Effects of Flight Phase"
 format: html 
 #include-in-header: custom-latex.sty
 editor: visual
@@ -7,7 +7,7 @@ editor: visual
 
 ## ***Q4 - Flight Phase & Bird Strikes:***
 
-### Based on the flight phase ("Climb", "Landing Roll", "Approach", "Take-off run"), which phase is correlated with the largest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
+### Do all flight phases have the same average number of birds struck per incident? Is there a casual relationship between flight phase and bird strikes?
 
 ### 
 
@@ -16,6 +16,10 @@ editor: visual
 To answer this question, I plan to utilize a Bayesian Generalized Linear Model (GLM). I plan to use this to answer the correlation and causal relationship portion of the questions. To begin, I will utilize basic EDA approaches by plotting summary statistics about the data I plan to analyze. By grabbing the average bird strikes for each flight phase, I plan to look at the differences between the averages in each flight phase to gain insights on the data to set my priors for the GLM. I plan to utilize normal informative priors with a poisson family with a log link function to account for the non-linear relationship with the data. Once the EDA is complete, I plan to build multiple GLM models with different families and priors to test the different effects on the model, while utilizing prior predictive checks and looking at the ESS and posterior intervals and distributions.
 
 I chose this analysis because I am able to use a GLM to answer the correlation question as well as the causal relationship inference portion. I plan to be able to answer both questions with one model as we can utilize all the model summary and information drawn from the the outputs to answer each portion of the questions. I could have taken a frequentist approach to answer the questions, however a Bayesian approach will allow me to utilize prior knowledge and more deeply assess and tune the model to answer the question. I plan to use variables that I believe are correlated with bird strikes in the sense that they are connected to the flight, flight information, and geographical information. Utilizing the DAG will ensure that I control for confounders to be able to make a more accurate, causal estimate.
+
+a\. run an anova
+
+b\.
 
 ```{r setup, include=FALSE, echo = FALSE}
 # Load libraries
@@ -61,6 +65,14 @@ ggplot(bird_strikes_summary, aes(x = FlightPhase, y = MeanStrikes, fill = Flight
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
 
+ggplot(data, aes(x = FlightPhase, y = NumberStruckActual, fill = FlightPhase)) +
+  geom_violin() +
+  labs(
+    title = "Average Bird Strikes by Flight Phase",
+    x = "Flight Phase",
+    y = "Average Number of Bird Strikes") + 
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 
 
 
@@ -141,7 +153,16 @@ dagitty(" dag { FlightPhase -\> NumberStruckActual ConditionsSky -\> NumberStruc
 levels(data$Effect)
 ```
 
+```{r}
+freq_model <- glm(NumberStruckActual ~ FlightPhase + Altitude, 
+                     data = data, 
+                     family = poisson(link = "log"))
+freq_model
+```
+
 # Bayesian Parameter Estimation + Causal Inference
+
+To complete Bayesian parameter estimation, we used a prior of N(0, 2.5),). We also used a N(0, 2.5) for the intercept. These priors are weakly informative, as our prior knowledge of bird strikes is limited. We also selected a normal distribution, because we believe that it is most likely that these flight phases have a are centered around 0, because we think it is reasonable for any of these flight phases to have either a positive or negative effect on the `NumberStruckActual`. We used a log link function, as we want to ensure that all of our outcomes are positive.
 
 For the bayesian parameter estimation portion, we test multiple different priors to see which ones are the best fit to the dataset. After running the models, the one I use is as follows: The priors that were chosen are weakly informative priors of a normal distribution, with a mean of 0 and variation of 2.5. The family is a negative binomial regression model with a log link function. The response variable is NumberStruckActual that is count data showing the number of bird strikes. The predictors are flight phase, conditionsSky, Effect, Damage, and OriginState. The link function is a log function as we want a log-linear function of the predictors to ensure values are positive. The predictor coefficients, or the prior, is a normal prior for the coefficients, assuming that most predictors will have little or no influence on the outcome but with moderately large variation of 2.5. The prior intercept is a normal prior with a mean of 0 and variation of 5 so the model can have a larger baseline counts of bird strikes which shows more uncertainty. The model has 4 chains with 8000 iterations so that we can have a larger posterior sample size and having more robust posterior estimaties. The negative binomial family handles overdispersion where variance exceeds mean and response variable as bird strikes have very high variability across the dataset.
 
