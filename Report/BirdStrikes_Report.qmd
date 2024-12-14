@@ -320,7 +320,7 @@ Given the above output, we can interpret not only the coefficients, but also the
 **Month Coefficients:** As an example, let's first take `Month02`'s (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is $e^{-0.1937}$ or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
 
 | Month                                 | Percentage Relative Rate     | Percentage Difference |
-|------------------------------|------------------------|------------------|
+|------------------------------|------------------------|-------------------|
 | **01** - January (Intercept/Baseline) | 1 (Baseline)                 | 0% (Baseline)         |
 | **02** - February                     | $(e^{-0.1937})*100$ = 82.4%  | -17.6%                |
 | **03** - March                        | $(e^{0.27452})*100$ = 131.6% | +31.6%                |
@@ -525,6 +525,7 @@ data$PilotWarned <- factor(data$PilotWarned)
 ```
 
 ```{r q3-regions-setup, warning=F, echo = F}
+# function to add region column to df
 region.adder <- function(df, state){
   northeast <- c("maine", "new hampshire", "vermont", "massachusetts", "rhode island", "connecticut", "new york", "new jersey", "pennsylvania", "delaware", "maryland")
   west <- c("washington", "california", "oregon", "idaho", "montana", "wyoming", "utah", "nevada", "colorado")
@@ -551,6 +552,7 @@ region.adder <- function(df, state){
 ```
 
 ```{r q3-usdata, warning=F, echo = F}
+# remove all rows that arent from contiguous US
 data_us_only <- data[data$OriginState != "",]
 data_us_only <- data_us_only[data_us_only$OriginState %in% state.name, ]
 data_us_only <- data_us_only[!data_us_only$OriginState %in% c("Alaska", "Hawaii"), ]
@@ -558,6 +560,7 @@ data_us_only$OriginState <- as.character(data_us_only$OriginState)
 data_us_only$OriginState <- tolower(data_us_only$OriginState)
 data_us_only$OriginState <- factor(data_us_only$OriginState)
 data_us_only$region <- region.adder(data_us_only, "OriginState")
+
 
 ```
 
@@ -591,6 +594,41 @@ region_avg <- merged_data %>%
 
 merged_data <- merged_data %>%
   left_join(region_avg, by = "region.y")
+```
+
+```{r q3-map-setup2, warning=F, echo = F, results="hide"}
+# this was used only for the presentation
+ggplot(merged_data, aes(x=long, y=lat, fill = avg_struck, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Average Number of Birds Struck per Incident by State') + 
+  scale_fill_viridis(name = "Avg # Struck", limits = c(1, 13)) +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+```
+
+```{r, , warning=F, echo = F, results="hide"}
+# used only for presentation
+ggplot(merged_data, aes(x=long, y=lat, fill = max_struck, group=group)) + 
+  geom_polygon(color = "white") + 
+  ggtitle('Maximum Number of Birds Struck per Incident by State') + 
+  scale_fill_viridis(name = "Max # Struck") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0.5)) 
+
 ```
 
 ```{r q3-map-setup3, warning=F, echo = F}
@@ -640,7 +678,7 @@ summary(lr)
 The coefficients from the linear regression model were as follows:
 
 | Coefficient                            | Estimate   | p-value  | Significance Level |
-|------------------------------|--------------|--------------|--------------|
+|---------------------------|---------------|---------------|---------------|
 | (Intercept)                            | 1.583e+00  | 0.049869 | \*                 |
 | Altitude                               | -2.511e-04 | 2.29e-05 | \*\*\*             |
 | Engines                                | 5.780e-01  | 0.013584 | \*                 |
@@ -758,6 +796,7 @@ In the future, it'd be helpful to gain a deeper understanding of the populations
 ## ***Q4 - KELSEY***
 
 ## Useful Links
-- [Question 3 Full Code]()
+
+-   [Question 3 Full Code]()
 -   [Bird Strikes Data Set](https://www.kaggle.com/datasets/ulrikthygepedersen/airplane-bird-strikes/data)
 -   [Project GitHub](https://github.com/katherinehansen1/CPSC540Final/tree/9-merge-write-ups)
