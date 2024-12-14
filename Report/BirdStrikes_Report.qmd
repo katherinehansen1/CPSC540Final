@@ -23,7 +23,7 @@ We focus on four questions throughout this paper and they are as follows:
 1.  Is there evidence that warnings of birds in the flight path have an effect on the number of birds hit? Does it even matter if pilots are warned?
 2.  Does the month of the year affect the count of bird strike incidents and, if so, which months are riskier? Are bird strikes increasing over the year?
 3.  What factors impact the number of birds struck per incident the most, and does the number of birds struck per incident change based on the region of the airport?
-4.  FIXME FIXME FIXME
+4.  Do all flight phases have the same average number of birds struck per incident? If not, which flight phase is correlated with the highest average number of birds struck per incident? Is there a casual relationship between flight phase and bird strikes?
 
 By answering these questions, we can gain insights into the frequency, causes, and severity of bird strike incidents, providing us information to develop effective prevention measures in the future.
 
@@ -320,7 +320,7 @@ Given the above output, we can interpret not only the coefficients, but also the
 **Month Coefficients:** As an example, let's first take `Month02`'s (February's) coefficient of -0.1937, which represents the log-relative rate of how many bird strikes are expected in February compared to January. If we convert this log-relative rate to a percentage relative rate, we can simply raise e to the power of the coefficient and multiply by 100. By doing this calculation, it may be easier to interpret that the the relative rate of bird strikes expected in February is $e^{-0.1937}$ or 0.824 compared to January (our baseline). In other words, February's expected rate is 82.4% the rate in January. Applying this calculation to each month and it's coefficient, we calculate the following:
 
 | Month                                 | Percentage Relative Rate     | Percentage Difference |
-|------------------------------|------------------------|-------------------|
+|-----------------------------|------------------------|-------------------|
 | **01** - January (Intercept/Baseline) | 1 (Baseline)                 | 0% (Baseline)         |
 | **02** - February                     | $(e^{-0.1937})*100$ = 82.4%  | -17.6%                |
 | **03** - March                        | $(e^{0.27452})*100$ = 131.6% | +31.6%                |
@@ -596,7 +596,7 @@ merged_data <- merged_data %>%
   left_join(region_avg, by = "region.y")
 ```
 
-```{r q3-map-setup2, warning=F, echo = F, results="hide"}
+```{r q3-map-setup3, warning=F, echo = F, results="hide"}
 # this was used only for the presentation
 ggplot(merged_data, aes(x=long, y=lat, fill = avg_struck, group=group)) + 
   geom_polygon(color = "white") + 
@@ -613,7 +613,7 @@ ggplot(merged_data, aes(x=long, y=lat, fill = avg_struck, group=group)) +
         plot.title = element_text(hjust = 0.5)) 
 ```
 
-```{r, , warning=F, echo = F, results="hide"}
+```{r q3-presmap-setup, warning=F, echo = F, results="hide"}
 # used only for presentation
 ggplot(merged_data, aes(x=long, y=lat, fill = max_struck, group=group)) + 
   geom_polygon(color = "white") + 
@@ -631,7 +631,7 @@ ggplot(merged_data, aes(x=long, y=lat, fill = max_struck, group=group)) +
 
 ```
 
-```{r q3-map-setup3, warning=F, echo = F}
+```{r q3-map-setup4, warning=F, echo = F}
 df.region <- map_data("state")
 df.region$state <- df.region$region
 df.region$region <- region.adder(df.region, 'state')
@@ -678,7 +678,7 @@ summary(lr)
 The coefficients from the linear regression model were as follows:
 
 | Coefficient                            | Estimate   | p-value  | Significance Level |
-|---------------------------|---------------|---------------|---------------|
+|------------------------|----------------|----------------|----------------|
 | (Intercept)                            | 1.583e+00  | 0.049869 | \*                 |
 | Altitude                               | -2.511e-04 | 2.29e-05 | \*\*\*             |
 | Engines                                | 5.780e-01  | 0.013584 | \*                 |
@@ -793,7 +793,246 @@ For part B of this question, only two sets of regions were found to have signifi
 
 In the future, it'd be helpful to gain a deeper understanding of the populations of birds in each region of the US. It'd be important to understand how different types of birds behave and whether or not they travel in flocks. If a region is made up of birds that mostly travel in flocks, it'd be possible that that region may see higher quantities of birds struck per incident.
 
-## ***Q4 - KELSEY***
+## ***Q4 - Flight Phase & Bird Strikes:***
+
+**Do all flight phases have the same average number of birds struck per incident? If not, which flight phase is correlated with the highest average number of birds struck per incident? Is there a casual relationship between flight phase and bird strikes?**
+
+### Analysis
+
+To begin, I will utilize basic EDA approaches by plotting summary statistics about the data I plan to analyze. I'll look into the means of `NumberStruckActual` by flight phase using a bar chart, as well as explore the distribution of `NumberStruckActual` utilizing a violin plot. To answer the second part of this question, I plan to utilize a Bayesian Generalized Linear Model (GLM). Viewing these averages and understanding the distribution will allow me to set better priors for the GLM. I plan to utilize normal, weakly informative priors with a poisson family, as the outcome data is count data. I also plan to use a log link function to assure that the outcomes are positive, as it is not reasonable to have a negative count of birds struck. Before running the GLM, I will build a DAG to explore the causal relationships present in this dataset. Building this DAG will allow me to control for any confounders and give me the ability to make a causal estimate. Once the EDA is complete, I plan to build multiple GLM models with different families and priors to test the different effects on the model. Afterwards, I will utilize prior predictive checks and look at the ESS and posterior intervals and distributions to select the best model.
+
+This analysis will allow me to fully answer all parts of this question. Using a Bayesian approach will allow me to utilize prior knowledge and deeply assess the model. I plan to use variables that I believe are correlated with bird strikes including flight information and geographical information.
+
+```{r q4-setup, include=FALSE, echo = FALSE}
+# Load libraries
+library(tidyverse)
+library(ggdag)
+library(rstanarm)
+library(bayesplot)
+library(fastDummies)
+library(corrplot)
+library(dagitty)
+
+# Load data
+data <- read.csv("../Bird_strikes.csv", stringsAsFactors = TRUE)
+
+# Replace NAs with 0
+data[is.na(data)] <- 0
+
+
+```
+
+### EDA
+
+```{r q4-overview, include = TRUE, echo = FALSE}
+# Summarize bird strikes by flight phase
+bird_strikes_summary <- data %>%
+  group_by(FlightPhase) %>%
+  summarise(
+    MeanStrikes = mean(NumberStruckActual, na.rm = TRUE),
+    VarianceStrikes = var(NumberStruckActual, na.rm = TRUE),
+    Count = n()
+  )
+
+# Bar plot of mean bird strikes by flight phase
+ggplot(bird_strikes_summary, aes(x = FlightPhase, y = MeanStrikes, fill = FlightPhase)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Average Bird Strikes by Flight Phase",
+    x = "Flight Phase",
+    y = "Average Number of Bird Strikes") + 
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(data, aes(x = FlightPhase, y = NumberStruckActual, fill = FlightPhase)) +
+  geom_violin() +
+  labs(
+    title = "Distribution of Bird Strikes by Flight Phase",
+    x = "Flight Phase",
+    y = "Number of Bird Strikes") + 
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+### Part A. Do all flight phases have the same average number of birds struck per incident?
+
+```{r q4-anova, include = TRUE, echo = FALSE}
+anova <- aov(NumberStruckActual ~ FlightPhase, data)
+summary(anova)
+
+```
+
+The P-value from this ANOVA confirms that the different levels of `FlightPhase` have statistically significant differences at the p=0.05 level. Because of this, we will do a further exploration to determine which `FlightPhase` has the highest average number of bird strikes.
+
+### Part B. Which flight phase is correlated with the highest average number of bird strikes? Is there a casual relationship between flight phase and bird strikes?
+
+#### DAG Creation & Quantification
+
+In this DAG, we visualize and explore the relationships between the variables `NumberStruckActual`, `FlightPhase`, `Altitude`, `ConditionsSky`, `Effect`, `Damage`, and `Origin`. Ultimately, we are aiming to quantify the direct effect of `FlightPhase` on `NumberStruckActual`, making `FlightPhase` our expose variable and `NumberStruckActual` our outcome variable. There exists a chain from `FlightPhase` -\> `Altitude` -\> `NumberStruckActual`, making `Altitude` a mediator between `FlightPhase` and `NumberStruckActual`. Because we are interested in the *direct* effect, we must control for `Altitude` in our model. To do so, we will include `Altitude` as an additional predictor in our GLM.
+
+```{r q4-dag, include = TRUE, echo = FALSE}
+# Construct DAG
+
+dag <- ggdag::dagify(
+    NumberStruckActual ~ Altitude + FlightPhase + Origin,
+    ConditionsSky ~ Origin, 
+    Altitude ~ FlightPhase, 
+    Damage ~ NumberStruckActual, 
+    Effect ~ Damage, 
+    exposure = "FlightPhase", 
+    outcome = "NumberStruckActual", 
+    labels = c(FlightPhase = "FlightPhase", 
+           ConditionsSky = "ConditionsSky", 
+           Effect = "Effect", 
+           Damage = "Damage", 
+           OriginState = "OriginState", 
+           NumberStruckActual = "NumberStruckActual", 
+           Altitude = "Altitude", 
+           Origin = "Origin")
+)
+
+
+# Plot the DAG
+ggdag(dag, node_size = 18, layout = "circle", stylized = TRUE, use_labels = "label", text = "False", 
+      node = "True", label_size = 2.5) +
+  theme_dag()
+  labs(title = "DAG: Confounding Variables for Bird Strikes")
+
+
+print(adjustmentSets(dag, effect = "direct"))
+```
+
+#### Bayesian Parameter Estimation + Causal Inference
+
+To complete Bayesian parameter estimation, we tested a dew different priors and families. All priors tested were weakly informative, as our prior knowledge of bird strikes is limited. The priors we tested included a normal prior with a $\mu$ of 0 and a $\sigma$ of 2.5, a student-t prior with 3 degrees of freedom, a location of 0, and a scale of 2.5. Using the student-t may allow us to better account for outliers, which we know are present in this dataset. For the intercept priors, we used both normal and student-t priors, although we allowed for higher variances/scales, as we wanted to allow for more variance in the intercepts. We selected distributions centered at 0, because we believe that it is reasonable for flight phases and altitude to have a positive or negative impact on `NumberStruckActual`, and that impact is most likely close to 0. From exploring our data, we know that most bird strikes involve very few birds, so we are not expecting parameters to be very large in magnitude. We used a log link function, as we want to ensure that all of our outcomes are positive. We tested two families, Poisson and negative binomial. equal to poisson, as this is count data. An assumption of a Poisson distribution is that the means and variances are the same. We know that there is a lot of variance in this data, due to several large outliers, so a Poisson distribution may not be the best fit. The alternative we attempted, negative binomial, is good for cases where the data is overdispersed, or the variance is much greater than the mean.
+
+After running the models, the one I use is as follows: The priors that were chosen are weakly informative priors of a normal distribution, with a mean of 0 and standard deviation of 2.5. The family is a negative binomial regression model with a log link function, to account for overdispersion. The outcome variable is `NumberStruckActual`, and the predictors are `FlightPhase` and `Altitude`. The link function is a log function as we to ensure values are positive. The prior is centered at 0, as it is assumes that most predictors will have little or no influence on the outcome but allowing for a moderately large variation of 2.5. The prior intercept is a normal prior with a mean of 0 and variation of 5 so the model can have a larger baseline counts of bird strikes which shows more uncertainty. The model has 4 chains with 8000 iterations so that we can have a large posterior sample size and have more robust posterior estimates.
+
+For the sake of the runtime it takes to render this PDF, only the one selected model is left uncommented.
+
+```{r q4-lib-load}
+#install.packages("rstanarm")
+library(rstanarm)
+```
+
+```{r q4-bayesianParamEstimation, echo = FALSE, include = FALSE}
+# Fitting a bunch of different glms with different prior intercepts
+
+# Trying model with: Student-T and poisson
+# bayesian_model <- stan_glm(
+#  NumberStruckActual ~ FlightPhase + Altitude,
+#  data = data,
+#  family = poisson(link = "log"),
+#  prior = student_t(3, 0, 2.5),  # Use Student-t prior instead of normal!
+#  prior_intercept = student_t(3, 0, 5),
+#  chains = 4, iter = 8000
+#)
+#summary(bayesian_model)
+
+# Trying model with: Normal and poisson
+#bayesian_model_norm <- stan_glm(
+#  NumberStruckActual ~ FlightPhase + Altitude,
+#  data = data,
+#  family = poisson(link = "log"),
+#  prior = normal(0, 2.5),
+#  prior_intercept = normal(0, 5),
+#  chains = 4, iter = 8000 
+#)
+#summary(bayesian_model_norm)
+```
+
+```{r q4-bayesianAltitudeCleanup, echo=FALSE, include=FALSE}
+# standardizes altitude 
+data$Altitude <- scale(data$Altitude)
+#summary(data)
+
+```
+
+```{r q4-theBigGuy}
+# Trying model with: Normal and Neg Binomial
+# USING THIS ONE
+bayesian_model_nb <- stan_glm(
+  NumberStruckActual ~ FlightPhase + Altitude,
+  data = data,
+  family = neg_binomial_2(link = "log"),
+  prior = normal(0, 2.5),
+  prior_intercept = normal(0, 5),
+  chains = 4, iter = 8000, warmup = 500
+)
+summary(bayesian_model_nb)
+
+```
+
+```{r q4-model-summary, echo = FALSE, include = TRUE}
+
+# Summarize model output
+print(summary(bayesian_model_nb))
+
+# Extract posterior intervals
+posterior_intervals <- posterior_interval(bayesian_model_nb, prob = 0.95)
+print(posterior_intervals)
+
+# Plot posterior distributions
+mcmc_areas(
+  as.matrix(bayesian_model_nb),
+  pars = c("(Intercept)", 
+           "FlightPhaseClimb", 
+           "FlightPhaseLanding Roll", 
+           "FlightPhaseTake-off run",
+           "FlightPhaseDescent",
+           "FlightPhaseParked",
+           "FlightPhaseTaxi")
+) +
+  labs(title = "Posterior Distributions of Flight Phase Effects")
+
+# PP CHECK
+pp_check(bayesian_model_nb, plotfun = "dens_overlay") +
+  labs(title = "Posterior Predictive Check")
+
+```
+
+#### Results
+
+Overall, the key findings were as follows. The baseline for `FlightPhase` was the Approach phase.
+
+Climb has a posterior mean of 0.3, with the 95% Credible Interval, or CI, spanning \[0.25, 0.34\].
+
+Descent has a posterior mean of 0.2, with the 95% CI, spanning \[0.18, 0.34\].
+
+Landing Roll has a posterior mean of 0.1, with the 95% CI spanning \[0.12, 0.34\].
+
+Parked has a posterior mean of -0.7, with the 95% CI spanning \[-1.49, 0.21\].
+
+Take-off run has a posterior mean of 0.2, with the 95% CI spanning \[0.13, 0.21\].
+
+Taxi has a posterior mean of 0.0, with the 95% CI spanning \[-0.25, 0.30\].
+
+Climb, Descent, Landing Roll, and Take-off run have CIs that do not overlap with 0, meaning that the model believes these phases are significant. The posterior means, or coefficients, represent the predicted changes in the number of birds struck per incident compared to the baseline level of Approach. Because we used a log link function, we must transform these coefficients in order to interpret them.
+
+In the Climb phase, $e^{0.3} \approx 1.35$ , or, the model expects to see 35% more birds struck per incident than in the Approach phase.
+
+In the Descent phase, $e^{0.2} \approx 1.22$ , or, the model expects to see 22% more birds struck per incident than in the Approach phase.
+
+For the Landing Roll phase, $e^{0.1} \approx 1.11$ , or, the model expects to see 11% more birds struck per incident than in the Approach phase.
+
+For the Take-off run phase, $e^{-0.7} \approx 0.5$ , or, the model expects to see 50% fewer birds struck per incident than in the Approach phase.
+
+The CI for Parked is wide, indicating a lot of uncertainty in the prediction there. Because the CI for Taxi overlaps with 0, the model believes that it is possible there is no difference between the number of birds struck in Approach and Taxi.
+
+Our reported $\hat{r}$ is 1, showing strong evidence that our chains have converged.
+
+The reported mean for reciprocal dispersion is 0.9, with a CI of \[0.93, 0.96\], indicating that our data is slightly overdispersed, and using negative binomial was an appropriate choice.
+
+The original research question was 'which flight phase is correlated with the highest average number of bird strikes?' and our model predicts that being in the Climb phase compared to Approach is associated with the highest number of birds struck per incident.
+
+Assuming our DAG is correct, because we controled for the confounding variable `Altitude`, this model reports a causal effect.
+
+#### Discussion
+
+The findings that were discussed in the results section covered the numerical analysis results, but there are certain limitations to this analysis. Not only can we not actually control for many variables in flights, we have to accept that there is a lot of uncertainty in this analysis. We can quantify our causal analysis and correlations to our numerical analysis with uncertainty factored in, but in reality, it is likely that we can't control for all confounders. The outputs, however, were in line with what I had previously assumed that has the most bird strikes. By confirming it with posterior predictive checks, we ensured that the priors were fit for the model. From these findings, pilots should be aware that they are at risk of hitting more birds in a strike in the Climb phase.
 
 ## Useful Links
 
