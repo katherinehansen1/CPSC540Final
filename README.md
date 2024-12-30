@@ -6,6 +6,9 @@
 * Kelsey Hawkins, kehawkins@chapman.edu, 2364453
 * Natalie Huante, huante@chapman.edu, 2374481
 
+# Presentation Link
+* https://www.canva.com/design/DAGXhqzAA0A/PMkYNPscrl567aKPqvzbpg/edit?utm_content=DAGXhqzAA0A&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton 
+
 # Resources Used
 * ChatGPT for debugging and general help
 * https://mc-stan.org/rstanarm/reference/stan_glm.html
