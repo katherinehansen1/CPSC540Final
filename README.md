@@ -26,4 +26,4 @@
 * https://forum.posit.co/t/hiding-selected-lines-in-code-chunk/119635
 * https://quarto.org/docs/authoring/tables.html
 * https://quarto.org/docs/authoring/title-blocks.html
-* 
+
